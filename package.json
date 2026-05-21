@@ -1,0 +1,106 @@
+{
+  "name": "oculix-vscode",
+  "displayName": "OculiX for VS Code",
+  "description": "Screenshot capture, pattern references, and image previews for OculiX scripts",
+  "version": "0.1.0",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "activationEvents": [
+    "onLanguage:python"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "oculix.captureRegion",
+        "title": "OculiX: Capture Screen Region",
+        "icon": "$(device-camera)"
+      },
+      {
+        "command": "oculix.openPreview",
+        "title": "OculiX: Open Preview to the Side",
+        "icon": "resources/oculix.png"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "oculix.captureRegion",
+        "key": "ctrl+shift+s",
+        "mac": "cmd+shift+s",
+        "when": "editorTextFocus && editorLangId == python"
+      },
+      {
+        "command": "oculix.openPreview",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "editorTextFocus && editorLangId == python"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "oculix.captureRegion",
+          "when": "editorLangId == python",
+          "group": "oculix"
+        },
+        {
+          "command": "oculix.openPreview",
+          "when": "editorLangId == python",
+          "group": "oculix"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "oculix.openPreview",
+          "when": "editorLangId == python",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "OculiX for VS Code",
+      "properties": {
+        "oculix.imageFolder": {
+          "type": "string",
+          "default": "",
+          "description": "Folder to save captured images (relative to workspace root). Leave empty to use same folder as current script."
+        },
+        "oculix.captureHelper": {
+          "type": "string",
+          "enum": ["python", "auto"],
+          "default": "auto",
+          "description": "Which helper to use for screen capture."
+        },
+        "oculix.previewImageHeight": {
+          "type": "number",
+          "default": 200,
+          "minimum": 24,
+          "maximum": 1200,
+          "description": "Maximum height (in pixels) of each Pattern(\"...\") thumbnail rendered in the OculiX Preview panel. Aspect ratio is preserved."
+        },
+        "oculix.cleanupUnreferencedImagesOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "On save of a Python file, move any .png in the image folder that is not referenced by name in any .py file in the workspace to the trash. References inside comments count."
+        }
+      }
+    },
+    "grammars": [
+      {
+        "path": "./syntaxes/oculix.tmLanguage.json",
+        "scopeName": "source.oculix-injected",
+        "injectTo": ["source.python"],
+        "embeddedLanguages": {}
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  }
+}

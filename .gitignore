@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Compiled output
+out/
+dist/
+
+# Packaged extension
+*.vsix
+
+# VS Code extension test runner
+.vscode-test/
+
+# Editor & OS
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+
+# Local environment overrides
+.env
+.env.local
+
+# Python helper scratch (the helper is regenerated at runtime in os.tmpdir())
+*.pyc
+__pycache__/

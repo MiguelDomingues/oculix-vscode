@@ -1,0 +1,47 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "script": "compile",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": { "reveal": "silent" },
+      "problemMatcher": "$tsc"
+    },
+    {
+      "type": "npm",
+      "script": "watch",
+      "isBackground": true,
+      "presentation": { "reveal": "silent" },
+      "problemMatcher": "$tsc-watch"
+    },
+    {
+      "label": "Setup: npm install",
+      "type": "shell",
+      "command": "npm install",
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Setup: pip install (mss, Pillow)",
+      "type": "shell",
+      "command": "pip install mss Pillow",
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Setup",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Setup: npm install",
+        "Setup: pip install (mss, Pillow)",
+        "npm: compile"
+      ],
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    }
+  ]
+}

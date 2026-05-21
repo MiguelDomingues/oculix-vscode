@@ -1,0 +1,35 @@
+{
+  "scopeName": "source.oculix-injected",
+  "injectionSelector": "L:source.python",
+  "patterns": [
+    { "include": "#pattern-call" },
+    { "include": "#target-offset" },
+    { "include": "#key-constants" }
+  ],
+  "repository": {
+    "pattern-call": {
+      "comment": "Pattern('1234.png') or Pattern(\"1234.png\")",
+      "match": "(Pattern)\\([\"']([^\"']+\\.png)[\"']\\)",
+      "captures": {
+        "1": { "name": "support.function.oculix" },
+        "2": { "name": "string.other.oculix.image-ref" }
+      }
+    },
+    "target-offset": {
+      "comment": ".targetOffset(x, y)",
+      "match": "(\\.targetOffset)\\(([^)]+)\\)",
+      "captures": {
+        "1": { "name": "support.function.oculix.offset" },
+        "2": { "name": "constant.numeric.oculix" }
+      }
+    },
+    "key-constants": {
+      "comment": "Key.ENTER, Key.DELETE, etc.",
+      "match": "\\b(Key)\\.(ENTER|DELETE|TAB|ESCAPE|ESC|SPACE|UP|DOWN|LEFT|RIGHT|F[0-9]+|CTRL|ALT|SHIFT|WIN|CMD)\\b",
+      "captures": {
+        "1": { "name": "support.class.oculix.key" },
+        "2": { "name": "constant.language.oculix.key" }
+      }
+    }
+  }
+}
