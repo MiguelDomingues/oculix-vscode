@@ -2,7 +2,7 @@
   "name": "oculix-vscode",
   "displayName": "OculiX for VS Code",
   "description": "Screenshot capture, pattern references, and image previews for OculiX scripts",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/MiguelDomingues/oculix-vscode.git"
@@ -11,8 +11,13 @@
     "url": "https://github.com/MiguelDomingues/oculix-vscode/issues"
   },
   "homepage": "https://github.com/MiguelDomingues/oculix-vscode#readme",
-  "engines": { "vscode": "^1.85.0" },
-  "categories": ["Other"],
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [
     "onLanguage:python"
   ],
@@ -75,7 +80,10 @@
         },
         "oculix.captureHelper": {
           "type": "string",
-          "enum": ["python", "auto"],
+          "enum": [
+            "python",
+            "auto"
+          ],
           "default": "auto",
           "description": "Which helper to use for screen capture."
         },
@@ -97,7 +105,9 @@
       {
         "path": "./syntaxes/oculix.tmLanguage.json",
         "scopeName": "source.oculix-injected",
-        "injectTo": ["source.python"],
+        "injectTo": [
+          "source.python"
+        ],
         "embeddedLanguages": {}
       }
     ]

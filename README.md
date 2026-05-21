@@ -211,4 +211,4 @@ This is an as-is hobby project, but issues and PRs are welcome. Please be patien
 
 ## License
 
-Not specified. Treat as "all rights reserved" until a license is added. (Likely target: MIT — but until that's committed, please don't assume.)
+[MIT](LICENSE) — fork it, modify it, ship it commercially, do whatever you like. Just keep the copyright notice.
