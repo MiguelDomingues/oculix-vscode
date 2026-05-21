@@ -1,0 +1,18 @@
+# Source — only the compiled out/ is needed at runtime.
+src/**
+tsconfig.json
+
+# Dev / CI / repo metadata
+.vscode/**
+.github/**
+.gitignore
+.vscodeignore
+
+# Build artifacts — never ship a .vsix inside another .vsix.
+*.vsix
+
+# Source maps from tsc (sourceMap: true in tsconfig).
+out/**/*.map
+
+# package-lock isn't needed at runtime; the marketplace doesn't use it.
+package-lock.json
