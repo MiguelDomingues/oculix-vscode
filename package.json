@@ -4,7 +4,7 @@
   "publisher": "migueldomingues",
   "icon": "resources/oculix.png",
   "description": "Screenshot capture, pattern references, and image previews for OculiX scripts",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "repository": {
     "type": "git",
     "url": "https://github.com/MiguelDomingues/oculix-vscode.git"
@@ -88,6 +88,13 @@
           ],
           "default": "auto",
           "description": "Which helper to use for screen capture."
+        },
+        "oculix.captureMinimizeDelayMs": {
+          "type": "number",
+          "default": 125,
+          "minimum": 0,
+          "maximum": 2000,
+          "description": "Delay in milliseconds after minimizing VS Code before showing the capture overlay. Lower is faster; higher can avoid capturing minimize animation artifacts."
         },
         "oculix.previewImageHeight": {
           "type": "number",

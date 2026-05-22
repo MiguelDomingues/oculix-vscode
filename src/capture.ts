@@ -4,6 +4,10 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { execSync, spawn } from 'child_process';
 
+let cachedPythonCommand: string | null | undefined;
+const validatedDepsByPython = new Set<string>();
+const CAPTURE_HELPER_PATH = path.join(os.tmpdir(), 'oculix_capture_helper.py');
+
 /**
  * Captures a screen region and saves to imageDir.
  * If `targetFilename` is provided, the existing file at that name is overwritten
@@ -16,12 +20,16 @@ export async function captureScreen(
 ): Promise<string | null> {
   const filename = targetFilename ?? `${Date.now()}.png`;
   const outputPath = path.join(imageDir, filename);
+  const config = vscode.workspace.getConfiguration('oculix');
+  const configuredDelayMs = config.get<number>('captureMinimizeDelayMs', 125);
+  const minimizeDelayMs = Number.isFinite(configuredDelayMs)
+    ? Math.max(0, Math.min(2000, Math.round(configuredDelayMs)))
+    : 125;
 
-  // Write the Python helper script to a temp file
-  const helperPath = path.join(os.tmpdir(), 'oculix_capture_helper.py');
-  fs.writeFileSync(helperPath, buildPythonHelper(outputPath));
+  // Keep a stable helper script on disk and pass output path as argv.
+  ensureCaptureHelperScript();
 
-  const python = detectPython();
+  const python = detectPythonCached();
   if (!python) {
     vscode.window.showErrorMessage(
       'OculiX for VS Code: Python not found. Please install Python 3 and ensure it is on your PATH.'
@@ -29,28 +37,13 @@ export async function captureScreen(
     return null;
   }
 
-  // Check required packages
-  const missing = checkPythonDeps(python);
-  if (missing.length > 0) {
-    const install = await vscode.window.showErrorMessage(
-      `OculiX for VS Code: Missing Python packages: ${missing.join(', ')}`,
-      'Install automatically',
-      'Cancel'
-    );
-    if (install === 'Install automatically') {
-      try {
-        execSync(`${python} -m pip install ${missing.join(' ')}`, { stdio: 'pipe' });
-      } catch {
-        vscode.window.showErrorMessage(`Failed to install packages. Run: pip install ${missing.join(' ')}`);
-        return null;
-      }
-    } else {
-      return null;
-    }
+  const depsReady = await ensureCaptureDependencies(python);
+  if (!depsReady) {
+    return null;
   }
 
   return new Promise((resolve) => {
-    const proc = spawn(python, [helperPath]);
+    const proc = spawn(python, [CAPTURE_HELPER_PATH, outputPath, String(minimizeDelayMs)]);
     let stderr = '';
 
     proc.stderr.on('data', (d) => (stderr += d.toString()));
@@ -73,12 +66,23 @@ export async function captureScreen(
  * Opens a transparent fullscreen overlay using tkinter so the user can drag
  * to select a region across any monitor.
  */
-function buildPythonHelper(outputPath: string): string {
-  // Escape Windows backslashes
-  const safePath = outputPath.replace(/\\/g, '\\\\');
-
+function buildPythonHelper(): string {
   return `
 import sys, time
+
+if len(sys.argv) < 2:
+    print("missing output path", file=sys.stderr)
+    exit(2)
+
+OUTPUT_PATH = sys.argv[1]
+try:
+  MINIMIZE_DELAY_MS = float(sys.argv[2]) if len(sys.argv) >= 3 else 125.0
+except Exception:
+  MINIMIZE_DELAY_MS = 125.0
+if MINIMIZE_DELAY_MS < 0:
+  MINIMIZE_DELAY_MS = 0.0
+if MINIMIZE_DELAY_MS > 2000:
+  MINIMIZE_DELAY_MS = 2000.0
 
 # On Windows, opt into per-monitor DPI awareness BEFORE importing tkinter so the
 # overlay window and mss share the same pixel coordinate space.
@@ -107,7 +111,8 @@ def minimize_foreground():
     saved_hwnd = u.GetForegroundWindow()
     if saved_hwnd:
         u.ShowWindow(saved_hwnd, 6)  # SW_MINIMIZE
-        time.sleep(0.25)
+    # Delay is configurable from VS Code settings.
+    time.sleep(MINIMIZE_DELAY_MS / 1000.0)
 
 def restore_foreground():
     if sys.platform != 'win32' or not saved_hwnd:
@@ -219,25 +224,76 @@ height = y2 - y1
 with mss.mss() as sct:
     region = {'top': abs_top, 'left': abs_left, 'width': width, 'height': height}
     sct_img = sct.grab(region)
-    mss.tools.to_png(sct_img.rgb, sct_img.size, output="${safePath}")
+    mss.tools.to_png(sct_img.rgb, sct_img.size, output=OUTPUT_PATH)
 
 restore_foreground()
 print("ok")
 `;
 }
 
-function detectPython(): string | null {
+function ensureCaptureHelperScript(): void {
+  const script = buildPythonHelper();
+  if (fs.existsSync(CAPTURE_HELPER_PATH)) {
+    try {
+      const current = fs.readFileSync(CAPTURE_HELPER_PATH, 'utf8');
+      if (current === script) {
+        return;
+      }
+    } catch {
+      // Fall through and rewrite.
+    }
+  }
+  fs.writeFileSync(CAPTURE_HELPER_PATH, script);
+}
+
+async function ensureCaptureDependencies(python: string): Promise<boolean> {
+  if (validatedDepsByPython.has(python)) {
+    return true;
+  }
+
+  const missing = checkPythonDeps(python);
+  if (missing.length === 0) {
+    validatedDepsByPython.add(python);
+    return true;
+  }
+
+  const install = await vscode.window.showErrorMessage(
+    `OculiX for VS Code: Missing Python packages: ${missing.join(', ')}`,
+    'Install automatically',
+    'Cancel'
+  );
+  if (install !== 'Install automatically') {
+    return false;
+  }
+
+  try {
+    execSync(`${python} -m pip install ${missing.join(' ')}`, { stdio: 'pipe' });
+    validatedDepsByPython.add(python);
+    return true;
+  } catch {
+    vscode.window.showErrorMessage(`Failed to install packages. Run: pip install ${missing.join(' ')}`);
+    return false;
+  }
+}
+
+function detectPythonCached(): string | null {
+  if (cachedPythonCommand !== undefined) {
+    return cachedPythonCommand;
+  }
+
   for (const cmd of ['python3', 'python']) {
     try {
       const out = execSync(`${cmd} --version`, { stdio: 'pipe' }).toString();
       if (out.includes('Python 3')) {
-        return cmd;
+        cachedPythonCommand = cmd;
+        return cachedPythonCommand;
       }
     } catch {
       // try next
     }
   }
-  return null;
+  cachedPythonCommand = null;
+  return cachedPythonCommand;
 }
 
 function checkPythonDeps(python: string): string[] {
