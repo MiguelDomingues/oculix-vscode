@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { captureScreen } from './capture';
 import { PatternHoverProvider } from './hoverProvider';
+import { OculixCompletionProvider } from './completionProvider';
 import { OculixPreviewPanel } from './previewPanel';
 import { cleanupUnreferencedImages } from './imageCleanup';
 
@@ -13,6 +14,13 @@ export function activate(context: vscode.ExtensionContext) {
   const hoverProvider = vscode.languages.registerHoverProvider(
     { language: 'python' },
     new PatternHoverProvider()
+  );
+
+  // ── Register completion item for capture workflow in OculiX calls ──
+  const completionProvider = vscode.languages.registerCompletionItemProvider(
+    { language: 'python' },
+    new OculixCompletionProvider(),
+    '('
   );
 
   // ── Capture region command ──
@@ -64,7 +72,13 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  context.subscriptions.push(hoverProvider, captureRegionCmd, openPreviewCmd, saveListener);
+  context.subscriptions.push(
+    hoverProvider,
+    completionProvider,
+    captureRegionCmd,
+    openPreviewCmd,
+    saveListener
+  );
 }
 
 /**
