@@ -97,8 +97,9 @@ export class OculixPreviewPanel {
 
     vscode.window.onDidChangeActiveTextEditor(
       (editor) => {
+        // Keep showing the current Python document when focus moves to the webview
+        // or to a non-Python editor.
         if (!editor || editor.document.languageId !== 'python') {
-          this.setDocument(undefined);
           return;
         }
         this.setDocument(editor.document);
