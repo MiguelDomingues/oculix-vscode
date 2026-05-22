@@ -44,6 +44,11 @@ jobs:
       - name: Package extension (.vsix)
         run: npx --yes @vscode/vsce package --no-dependencies --out "${{ env.VSIX_NAME }}"
 
+      - name: Publish to VS Code Marketplace
+        run: npx @vscode/vsce publish --packagePath "${{ env.VSIX_NAME }}"
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
