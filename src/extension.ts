@@ -41,8 +41,9 @@ export function activate(context: vscode.ExtensionContext) {
 
       await vscode.window.withProgress(
         { location: vscode.ProgressLocation.Notification, title: 'OculiX: Preparing capture...' },
-        async () => {
-          const filename = await captureScreen(imageDir);
+        async (progress) => {
+          const reportStatus = (message: string) => progress.report({ message });
+          const filename = await captureScreen(imageDir, undefined, reportStatus);
           if (filename) {
             insertPatternReference(editor, filename);
             vscode.window.showInformationMessage(`Captured: ${filename}`);

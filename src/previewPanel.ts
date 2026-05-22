@@ -278,8 +278,9 @@ export class OculixPreviewPanel {
         location: vscode.ProgressLocation.Notification,
         title: `OculiX: recapture ${filename}…`,
       },
-      async () => {
-        const result = await captureScreen(imageDir, filename);
+      async (progress) => {
+        const reportStatus = (message: string) => progress.report({ message });
+        const result = await captureScreen(imageDir, filename, reportStatus);
         if (result) {
           vscode.window.showInformationMessage(`OculiX: replaced ${filename}`);
           // Re-render so the new image (with bumped mtime cache-bust) shows immediately.
