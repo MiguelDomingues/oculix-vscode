@@ -2,7 +2,7 @@
   "name": "oculix-vscode",
   "displayName": "OculiX for VS Code",
   "description": "Screenshot capture, pattern references, and image previews for OculiX scripts",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/MiguelDomingues/oculix-vscode.git"
