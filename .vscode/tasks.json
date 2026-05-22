@@ -33,6 +33,27 @@
       "problemMatcher": []
     },
     {
+      "label": "Bump: patch",
+      "type": "shell",
+      "command": "npm run bump patch",
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Bump: minor",
+      "type": "shell",
+      "command": "npm run bump minor",
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Bump: major",
+      "type": "shell",
+      "command": "npm run bump major",
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
       "label": "Setup",
       "dependsOrder": "sequence",
       "dependsOn": [

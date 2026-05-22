@@ -114,7 +114,8 @@
   },
   "scripts": {
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "bump": "node scripts/bump-version.js"
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0",

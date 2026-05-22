@@ -185,6 +185,26 @@ npm run compile
 
 While developing, run the **`npm: watch`** task (or `npm run watch`) to auto-recompile on save. Reload the Extension Development Host with `Ctrl+R` to pick up changes.
 
+### Bumping the version
+
+Use the included script to update `package.json` and `package-lock.json` in one step:
+
+```bash
+npm run bump patch    # 0.1.2 → 0.1.3
+npm run bump minor    # 0.1.2 → 0.2.0
+npm run bump major    # 0.1.2 → 1.0.0
+npm run bump 0.2.1    # explicit version
+```
+
+After bumping, commit and tag:
+
+```bash
+git add package.json package-lock.json
+git commit -m "chore: bump version to 0.1.3"
+git tag v0.1.3
+git push && git push --tags
+```
+
 ### Packaging a `.vsix`
 
 ```bash
