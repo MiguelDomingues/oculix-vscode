@@ -11,18 +11,18 @@ const MIN_IMAGE_HEIGHT = 24;
 const MAX_IMAGE_HEIGHT = 1200;
 
 export class OculixPreviewPanel {
-  private static readonly panels = new Map<string, OculixPreviewPanel>();
+  private static currentPanel: OculixPreviewPanel | undefined;
 
   private readonly panel: vscode.WebviewPanel;
-  private readonly docUri: vscode.Uri;
+  private docUri: vscode.Uri | undefined;
   private readonly disposables: vscode.Disposable[] = [];
   private debounceTimer?: NodeJS.Timeout;
 
   static createOrShow(doc: vscode.TextDocument): void {
-    const key = doc.uri.toString();
-    const existing = OculixPreviewPanel.panels.get(key);
+    const existing = OculixPreviewPanel.currentPanel;
     if (existing) {
       existing.panel.reveal(vscode.ViewColumn.Beside, true);
+      existing.setDocument(doc);
       return;
     }
     new OculixPreviewPanel(doc);
@@ -30,14 +30,11 @@ export class OculixPreviewPanel {
 
   private constructor(doc: vscode.TextDocument) {
     this.docUri = doc.uri;
-
-    const scriptDir = path.dirname(doc.uri.fsPath);
-    const workspaceRoots = (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri);
-    const localResourceRoots = [vscode.Uri.file(scriptDir), ...workspaceRoots];
+    const localResourceRoots = this.getLocalResourceRoots(doc.uri);
 
     this.panel = vscode.window.createWebviewPanel(
       'oculixPreview',
-      `OculiX Preview: ${path.basename(doc.uri.fsPath)}`,
+      this.getTitleForDoc(doc.uri),
       { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
       {
         enableScripts: true,
@@ -46,9 +43,9 @@ export class OculixPreviewPanel {
       }
     );
 
-    OculixPreviewPanel.panels.set(this.docUri.toString(), this);
+    OculixPreviewPanel.currentPanel = this;
 
-    this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
+    this.panel.onDidDispose(() => this.dispose(false), null, this.disposables);
 
     this.panel.webview.onDidReceiveMessage(
       (msg) => {
@@ -70,7 +67,7 @@ export class OculixPreviewPanel {
 
     vscode.workspace.onDidChangeTextDocument(
       (event) => {
-        if (event.document.uri.toString() === this.docUri.toString()) {
+        if (this.isCurrentDocument(event.document.uri)) {
           this.scheduleUpdate();
         }
       },
@@ -90,8 +87,36 @@ export class OculixPreviewPanel {
 
     vscode.window.onDidChangeTextEditorSelection(
       (event) => {
-        if (event.textEditor.document.uri.toString() === this.docUri.toString()) {
+        if (this.isCurrentDocument(event.textEditor.document.uri)) {
           this.sendActiveLine(event.selections[0].active.line);
+        }
+      },
+      null,
+      this.disposables
+    );
+
+    vscode.window.onDidChangeActiveTextEditor(
+      (editor) => {
+        if (!editor || editor.document.languageId !== 'python') {
+          this.setDocument(undefined);
+          return;
+        }
+        this.setDocument(editor.document);
+      },
+      null,
+      this.disposables
+    );
+
+    vscode.workspace.onDidCloseTextDocument(
+      (closedDoc) => {
+        if (!this.isCurrentDocument(closedDoc.uri)) {
+          return;
+        }
+        const replacement = vscode.window.activeTextEditor?.document;
+        if (replacement && replacement.languageId === 'python') {
+          this.setDocument(replacement);
+        } else {
+          this.setDocument(undefined);
         }
       },
       null,
@@ -102,11 +127,57 @@ export class OculixPreviewPanel {
     this.sendInitialActiveLine();
   }
 
+  private getTitleForDoc(docUri: vscode.Uri | undefined): string {
+    if (!docUri) {
+      return 'OculiX Preview';
+    }
+    return `OculiX Preview: ${path.basename(docUri.fsPath)}`;
+  }
+
+  private getLocalResourceRoots(docUri: vscode.Uri | undefined): vscode.Uri[] {
+    const workspaceRoots = (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri);
+    if (!docUri) {
+      return workspaceRoots;
+    }
+    const scriptDir = path.dirname(docUri.fsPath);
+    return [vscode.Uri.file(scriptDir), ...workspaceRoots];
+  }
+
+  private setDocument(doc: vscode.TextDocument | undefined): void {
+    if (doc && doc.languageId !== 'python') {
+      return;
+    }
+
+    const nextUri = doc?.uri;
+    const current = this.docUri?.toString();
+    const next = nextUri?.toString();
+    if (current === next) {
+      this.sendInitialActiveLine();
+      return;
+    }
+
+    this.docUri = nextUri;
+    this.panel.title = this.getTitleForDoc(nextUri);
+    this.panel.webview.options = {
+      ...this.panel.webview.options,
+      localResourceRoots: this.getLocalResourceRoots(nextUri),
+    };
+    this.update();
+    this.sendInitialActiveLine();
+  }
+
+  private isCurrentDocument(uri: vscode.Uri): boolean {
+    return !!this.docUri && this.docUri.toString() === uri.toString();
+  }
+
   private sendActiveLine(line: number): void {
     this.panel.webview.postMessage({ type: 'activeLine', line });
   }
 
   private sendInitialActiveLine(): void {
+    if (!this.docUri) {
+      return;
+    }
     const docKey = this.docUri.toString();
     const editor = vscode.window.visibleTextEditors.find(
       (e) => e.document.uri.toString() === docKey
@@ -116,13 +187,17 @@ export class OculixPreviewPanel {
     }
   }
 
-  dispose(): void {
-    OculixPreviewPanel.panels.delete(this.docUri.toString());
+  dispose(disposePanel = true): void {
+    if (OculixPreviewPanel.currentPanel === this) {
+      OculixPreviewPanel.currentPanel = undefined;
+    }
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
     this.disposables.forEach((d) => d.dispose());
-    this.panel.dispose();
+    if (disposePanel) {
+      this.panel.dispose();
+    }
   }
 
   private scheduleUpdate(): void {
@@ -133,8 +208,14 @@ export class OculixPreviewPanel {
   }
 
   private update(): void {
+    if (!this.docUri) {
+      this.panel.webview.html = this.renderNoActiveDocHtml();
+      return;
+    }
+    const docUri = this.docUri;
+
     const doc = vscode.workspace.textDocuments.find(
-      (d) => d.uri.toString() === this.docUri.toString()
+      (d) => d.uri.toString() === docUri.toString()
     );
     if (!doc) {
       this.panel.webview.html = this.renderClosedDocHtml();
@@ -155,6 +236,10 @@ export class OculixPreviewPanel {
     offsetX: number;
     offsetY: number;
   }): Promise<void> {
+    if (!this.docUri) {
+      return;
+    }
+
     const newOffsetCall = `.targetOffset(${msg.offsetX},${msg.offsetY})`;
     const edit = new vscode.WorkspaceEdit();
 
@@ -176,6 +261,10 @@ export class OculixPreviewPanel {
   }
 
   private async handleRecapture(msg: { name: string }): Promise<void> {
+    if (!this.docUri) {
+      return;
+    }
+
     const imagePath = resolveImagePath(this.docUri, msg.name);
     if (!imagePath) {
       vscode.window.showErrorMessage(`OculiX: cannot find image to replace — ${msg.name}`);
@@ -209,6 +298,10 @@ export class OculixPreviewPanel {
     simEnd: number | null;
     similarity: number;
   }): Promise<void> {
+    if (!this.docUri) {
+      return;
+    }
+
     const result = await runPatternTest(this.docUri, {
       filename: msg.name,
       similarity: msg.similarity,
@@ -237,6 +330,10 @@ export class OculixPreviewPanel {
     simEnd: number | null;
     value: number;
   }): Promise<void> {
+    if (!this.docUri) {
+      return;
+    }
+
     const formatted = formatSimilarValue(msg.value);
     const newCall = `.similar(${formatted})`;
     const edit = new vscode.WorkspaceEdit();
@@ -259,6 +356,10 @@ export class OculixPreviewPanel {
   }
 
   private revealLineInEditor(line: number): void {
+    if (!this.docUri) {
+      return;
+    }
+
     const docKey = this.docUri.toString();
     const editor = vscode.window.visibleTextEditors.find(
       (e) => e.document.uri.toString() === docKey
@@ -294,7 +395,7 @@ export class OculixPreviewPanel {
 
     const renderedLines = lines
       .map((line, idx) => {
-        const rendered = renderLine(line, idx, this.docUri, webview);
+        const rendered = renderLine(line, idx, doc.uri, webview);
         return `<div class="line" data-line="${idx}"><span class="lineno">${idx + 1}</span><span class="content">${rendered}</span></div>`;
       })
       .join('\n');
@@ -765,6 +866,13 @@ ${renderedLines}
     return `<!DOCTYPE html>
 <html><body style="font-family: var(--vscode-font-family); color: var(--vscode-foreground); background: var(--vscode-editor-background); padding: 24px;">
 <p>The source document is no longer open. Close this preview and reopen it from the source file.</p>
+</body></html>`;
+  }
+
+  private renderNoActiveDocHtml(): string {
+    return `<!DOCTYPE html>
+<html><body style="font-family: var(--vscode-font-family); color: var(--vscode-foreground); background: var(--vscode-editor-background); padding: 24px;">
+<p>Focus a Python editor tab to update this shared preview.</p>
 </body></html>`;
   }
 }
