@@ -159,15 +159,18 @@ try:
         current_threshold = round(new_val * 100) / 100
         redraw()
 
-    def on_wheel(e: Any) -> None:
+    def on_wheel(e: Any) -> str:
         direction = 1 if e.delta > 0 else -1
         step_threshold(direction, fine=bool(e.state & 0x1))
+        return "break"
 
-    def on_wheel_up(e: Any) -> None:
+    def on_wheel_up(e: Any) -> str:
         step_threshold(1)
+        return "break"
 
-    def on_wheel_down(e: Any) -> None:
+    def on_wheel_down(e: Any) -> str:
         step_threshold(-1)
+        return "break"
 
     def on_escape(e: Any) -> None:
         root.quit()

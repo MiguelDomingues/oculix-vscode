@@ -727,6 +727,9 @@ ${renderedLines}
     const wrap = e.target.closest('.pattern-wrap');
     if (!wrap) return;
     e.preventDefault();
+    // Some Shift-modified wheel interactions can emit zero-delta wheel events.
+    // Ignore those so one notch maps to one logical step.
+    if (e.deltaY === 0) return;
     const current = parseFloat(wrap.dataset.similar || String(SIMILAR_DEFAULT));
     let step = 0.05;
     if (e.shiftKey) step = 0.01;
