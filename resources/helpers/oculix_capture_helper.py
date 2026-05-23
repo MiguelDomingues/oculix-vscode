@@ -1,5 +1,18 @@
 import sys
-import time
+import os
+
+HELPER_DIR = os.path.dirname(os.path.abspath(__file__))
+if HELPER_DIR not in sys.path:
+    sys.path.insert(0, HELPER_DIR)
+
+from oculix_screen_runtime import (
+    build_dim_overlay,
+    capture_virtual_screen,
+    clamp_overlay_alpha,
+    minimize_foreground,
+    mss_frame_to_pil,
+    restore_foreground,
+)
 
 if len(sys.argv) < 2:
     print("missing output path", file=sys.stderr)
@@ -17,59 +30,21 @@ if MINIMIZE_DELAY_MS < 0:
 if MINIMIZE_DELAY_MS > 2000:
     MINIMIZE_DELAY_MS = 2000.0
 
-if sys.platform == "win32":
-    try:
-        from ctypes import windll
-        windll.shcore.SetProcessDpiAwareness(2)
-    except Exception:
-        try:
-            windll.user32.SetProcessDPIAware()
-        except Exception:
-            pass
+OVERLAY_DIM_ALPHA = clamp_overlay_alpha(sys.argv[3]) if len(sys.argv) >= 4 else 150
+OVERLAY_DIM_COLOR = sys.argv[4] if len(sys.argv) >= 5 else "#FFFFFF"
 
-saved_hwnd = 0
-
-
-def _user32():
-    import ctypes
-    return ctypes.windll.user32
-
-
-def minimize_foreground():
-    global saved_hwnd
-    if sys.platform != "win32":
-        return
-    u = _user32()
-    saved_hwnd = u.GetForegroundWindow()
-    if saved_hwnd:
-        u.ShowWindow(saved_hwnd, 6)  # SW_MINIMIZE
-    time.sleep(MINIMIZE_DELAY_MS / 1000.0)
-
-
-def restore_foreground():
-    if sys.platform != "win32" or not saved_hwnd:
-        return
-    u = _user32()
-    u.ShowWindow(saved_hwnd, 9)  # SW_RESTORE
-    u.SetForegroundWindow(saved_hwnd)
-
-
-minimize_foreground()
+minimize_foreground(MINIMIZE_DELAY_MS)
 
 import tkinter as tk
-import mss
-import mss.tools
+from PIL import Image, ImageTk
 
-with mss.mss() as sct:
-    monitors = sct.monitors
-    virtual = monitors[0]
+virtual, primary, frozen_img = capture_virtual_screen()
 
 V_LEFT = virtual["left"]
 V_TOP = virtual["top"]
 V_WIDTH = virtual["width"]
 V_HEIGHT = virtual["height"]
 
-primary = monitors[1] if len(monitors) > 1 else virtual
 P_LEFT = primary["left"] - V_LEFT
 P_TOP = primary["top"] - V_TOP
 P_WIDTH = primary["width"]
@@ -81,12 +56,44 @@ rect_id = None
 root = tk.Tk()
 root.overrideredirect(True)
 root.geometry(f"{V_WIDTH}x{V_HEIGHT}+{V_LEFT}+{V_TOP}")
-root.attributes("-alpha", 0.25)
 root.attributes("-topmost", True)
 root.configure(bg="black")
 
 canvas = tk.Canvas(root, cursor="crosshair", bg="black", highlightthickness=0)
 canvas.pack(fill=tk.BOTH, expand=True)
+
+# Freeze the screen first, then let the user select on the static frame.
+frozen_pil = mss_frame_to_pil(frozen_img)
+frozen_rgba = frozen_pil.convert("RGBA")
+dim_overlay_rgba = build_dim_overlay(V_WIDTH, V_HEIGHT, OVERLAY_DIM_ALPHA, OVERLAY_DIM_COLOR)
+preview_tk = None
+
+
+def update_preview_with_hole(x1=None, y1=None, x2=None, y2=None):
+    global preview_tk
+    preview = Image.alpha_composite(frozen_rgba, dim_overlay_rgba)
+
+    if x1 is not None and y1 is not None and x2 is not None and y2 is not None:
+        sx1, sx2 = sorted([x1, x2])
+        sy1, sy2 = sorted([y1, y2])
+        sx1 = max(0, min(V_WIDTH, sx1))
+        sx2 = max(0, min(V_WIDTH, sx2))
+        sy1 = max(0, min(V_HEIGHT, sy1))
+        sy2 = max(0, min(V_HEIGHT, sy2))
+
+        if sx2 > sx1 and sy2 > sy1:
+            clear_region = frozen_rgba.crop((sx1, sy1, sx2, sy2))
+            preview.paste(clear_region, (sx1, sy1))
+
+    preview_tk = ImageTk.PhotoImage(preview.convert("RGB"))
+    bg = canvas.find_withtag("bg")
+    if bg:
+        canvas.itemconfigure(bg[0], image=preview_tk)
+    else:
+        canvas.create_image(0, 0, image=preview_tk, anchor="nw", tags="bg")
+
+
+update_preview_with_hole()
 
 label = tk.Label(
     root,
@@ -102,6 +109,7 @@ def on_press(e):
     global start_x, start_y, selecting, rect_id
     start_x, start_y = e.x, e.y
     selecting = True
+    update_preview_with_hole(start_x, start_y, start_x, start_y)
     if rect_id:
         canvas.delete(rect_id)
     rect_id = canvas.create_rectangle(
@@ -112,7 +120,9 @@ def on_press(e):
 def on_drag(e):
     global rect_id
     if selecting and rect_id:
+        update_preview_with_hole(start_x, start_y, e.x, e.y)
         canvas.coords(rect_id, start_x, start_y, e.x, e.y)
+        canvas.tag_raise(rect_id)
 
 
 def on_release(e):
@@ -149,15 +159,9 @@ if x2 - x1 < 5 or y2 - y1 < 5:
     print("selection too small")
     sys.exit(1)
 
-abs_left = V_LEFT + x1
-abs_top = V_TOP + y1
-width = x2 - x1
-height = y2 - y1
-
-with mss.mss() as sct:
-    region = {"top": abs_top, "left": abs_left, "width": width, "height": height}
-    sct_img = sct.grab(region)
-    mss.tools.to_png(sct_img.rgb, sct_img.size, output=OUTPUT_PATH)
+# Crop from the frozen full-screen frame for deterministic captures.
+region = (x1, y1, x2, y2)
+frozen_pil.crop(region).save(OUTPUT_PATH, format="PNG")
 
 restore_foreground()
 print("ok")

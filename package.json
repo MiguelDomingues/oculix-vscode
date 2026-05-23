@@ -103,6 +103,19 @@
           "maximum": 1200,
           "description": "Maximum height (in pixels) of each Pattern(\"...\") thumbnail rendered in the OculiX Preview panel. Aspect ratio is preserved."
         },
+        "oculix.overlayDimPercent": {
+          "type": "number",
+          "default": 30,
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Overlay dim amount as a percentage (0-100) used during capture and test modes. Higher values dim more."
+        },
+        "oculix.overlayDimColor": {
+          "type": "string",
+          "default": "#000000",
+          "format": "color-hex",
+          "description": "Overlay tint color used during capture and test modes."
+        },
         "oculix.cleanupUnreferencedImagesOnSave": {
           "type": "boolean",
           "default": true,

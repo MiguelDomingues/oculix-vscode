@@ -15,6 +15,7 @@ export type TestPatternResult = { apply: false } | { apply: true; value: number 
 // Tracks the currently-running test overlay so a new request can replace it.
 let activeProc: ChildProcess | null = null;
 const TEST_HELPER_TEMP_PATH = path.join(os.tmpdir(), 'oculix_test_pattern.py');
+const SHARED_RUNTIME_TEMP_PATH = path.join(os.tmpdir(), 'oculix_screen_runtime.py');
 const BUNDLED_TEST_HELPER_PATH = path.join(
   __dirname,
   '..',
@@ -22,6 +23,27 @@ const BUNDLED_TEST_HELPER_PATH = path.join(
   'helpers',
   'oculix_test_pattern.py'
 );
+const BUNDLED_SHARED_RUNTIME_PATH = path.join(
+  __dirname,
+  '..',
+  'resources',
+  'helpers',
+  'oculix_screen_runtime.py'
+);
+
+function resolveOverlayDimAlpha(config: vscode.WorkspaceConfiguration): number {
+  const configuredPercent = config.get<number>('overlayDimPercent', 60);
+  const pct = Number.isFinite(configuredPercent)
+    ? Math.max(0, Math.min(100, Number(configuredPercent)))
+    : 60;
+  return Math.round((pct / 100) * 255);
+}
+
+function resolveOverlayDimColor(config: vscode.WorkspaceConfiguration): string {
+  const configuredColor = config.get<string>('overlayDimColor', '#FFFFFF');
+  const candidate = typeof configuredColor === 'string' ? configuredColor.trim() : '';
+  return /^#[0-9A-Fa-f]{6}$/.test(candidate) ? candidate.toUpperCase() : '#FFFFFF';
+}
 
 export async function runPatternTest(
   docUri: vscode.Uri,
@@ -75,7 +97,7 @@ export async function runPatternTest(
   }
 
   reportProgress('Checking dependencies…');
-  const missing = checkPythonDeps(python, ['mss', 'opencv-python']);
+  const missing = checkPythonDeps(python, ['mss', 'opencv-python', 'Pillow']);
   if (missing.length > 0) {
     reportProgress('Waiting for dependency install confirmation…');
     const choice = await vscode.window.showInformationMessage(
@@ -100,9 +122,19 @@ export async function runPatternTest(
     return finish({ apply: false });
   }
 
+  const config = vscode.workspace.getConfiguration('oculix');
+  const overlayDimAlpha = resolveOverlayDimAlpha(config);
+  const overlayDimColor = resolveOverlayDimColor(config);
+
   return new Promise((resolve) => {
     reportProgress('Launching analyzer…');
-    const proc = spawn(python, [helperPath, imagePath, String(req.similarity)]);
+    const proc = spawn(python, [
+      helperPath,
+      imagePath,
+      String(req.similarity),
+      String(overlayDimAlpha),
+      overlayDimColor,
+    ]);
     activeProc = proc;
     reportProgress('Analyzing screen…');
 
@@ -176,22 +208,27 @@ async function installPackages(
 }
 
 function ensureTestPatternHelperScript(): string | null {
-  if (!fs.existsSync(BUNDLED_TEST_HELPER_PATH)) {
+  if (!fs.existsSync(BUNDLED_TEST_HELPER_PATH) || !fs.existsSync(BUNDLED_SHARED_RUNTIME_PATH)) {
     vscode.window.showErrorMessage(
-      `OculiX Test: bundled helper missing at ${BUNDLED_TEST_HELPER_PATH}`
+      'OculiX Test: bundled helper missing in resources/helpers.'
     );
     return null;
   }
 
   try {
     const bundled = fs.readFileSync(BUNDLED_TEST_HELPER_PATH, 'utf8');
-    if (fs.existsSync(TEST_HELPER_TEMP_PATH)) {
+    const bundledShared = fs.readFileSync(BUNDLED_SHARED_RUNTIME_PATH, 'utf8');
+    const hasCurrentTest = fs.existsSync(TEST_HELPER_TEMP_PATH);
+    const hasCurrentShared = fs.existsSync(SHARED_RUNTIME_TEMP_PATH);
+    if (hasCurrentTest && hasCurrentShared) {
       const current = fs.readFileSync(TEST_HELPER_TEMP_PATH, 'utf8');
-      if (current === bundled) {
+      const currentShared = fs.readFileSync(SHARED_RUNTIME_TEMP_PATH, 'utf8');
+      if (current === bundled && currentShared === bundledShared) {
         return TEST_HELPER_TEMP_PATH;
       }
     }
     fs.writeFileSync(TEST_HELPER_TEMP_PATH, bundled);
+    fs.writeFileSync(SHARED_RUNTIME_TEMP_PATH, bundledShared);
     return TEST_HELPER_TEMP_PATH;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

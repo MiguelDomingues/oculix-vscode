@@ -7,6 +7,7 @@ import { execSync, spawn } from 'child_process';
 let cachedPythonCommand: string | null | undefined;
 const validatedDepsByPython = new Set<string>();
 const CAPTURE_HELPER_PATH = path.join(os.tmpdir(), 'oculix_capture_helper.py');
+const SHARED_RUNTIME_PATH = path.join(os.tmpdir(), 'oculix_screen_runtime.py');
 const BUNDLED_CAPTURE_HELPER_PATH = path.join(
   __dirname,
   '..',
@@ -14,6 +15,27 @@ const BUNDLED_CAPTURE_HELPER_PATH = path.join(
   'helpers',
   'oculix_capture_helper.py'
 );
+const BUNDLED_SHARED_RUNTIME_PATH = path.join(
+  __dirname,
+  '..',
+  'resources',
+  'helpers',
+  'oculix_screen_runtime.py'
+);
+
+function resolveOverlayDimAlpha(config: vscode.WorkspaceConfiguration): number {
+  const configuredPercent = config.get<number>('overlayDimPercent', 60);
+  const pct = Number.isFinite(configuredPercent)
+    ? Math.max(0, Math.min(100, Number(configuredPercent)))
+    : 60;
+  return Math.round((pct / 100) * 255);
+}
+
+function resolveOverlayDimColor(config: vscode.WorkspaceConfiguration): string {
+  const configuredColor = config.get<string>('overlayDimColor', '#FFFFFF');
+  const candidate = typeof configuredColor === 'string' ? configuredColor.trim() : '';
+  return /^#[0-9A-Fa-f]{6}$/.test(candidate) ? candidate.toUpperCase() : '#FFFFFF';
+}
 
 /**
  * Captures a screen region and saves to imageDir.
@@ -33,6 +55,8 @@ export async function captureScreen(
   const minimizeDelayMs = Number.isFinite(configuredDelayMs)
     ? Math.max(0, Math.min(2000, Math.round(configuredDelayMs)))
     : 125;
+  const overlayDimAlpha = resolveOverlayDimAlpha(config);
+  const overlayDimColor = resolveOverlayDimColor(config);
 
   onStatus?.('Checking Python environment...');
 
@@ -58,7 +82,13 @@ export async function captureScreen(
 
   return new Promise((resolve) => {
     onStatus?.('Opening capture overlay...');
-    const proc = spawn(python, [CAPTURE_HELPER_PATH, outputPath, String(minimizeDelayMs)]);
+    const proc = spawn(python, [
+      CAPTURE_HELPER_PATH,
+      outputPath,
+      String(minimizeDelayMs),
+      String(overlayDimAlpha),
+      overlayDimColor,
+    ]);
     let stderr = '';
 
     proc.stderr.on('data', (d) => (stderr += d.toString()));
@@ -78,22 +108,27 @@ export async function captureScreen(
 }
 
 function ensureCaptureHelperScript(): boolean {
-  if (!fs.existsSync(BUNDLED_CAPTURE_HELPER_PATH)) {
+  if (!fs.existsSync(BUNDLED_CAPTURE_HELPER_PATH) || !fs.existsSync(BUNDLED_SHARED_RUNTIME_PATH)) {
     vscode.window.showErrorMessage(
-      `OculiX for VS Code: bundled helper missing at ${BUNDLED_CAPTURE_HELPER_PATH}`
+      `OculiX for VS Code: bundled helper missing in resources/helpers.`
     );
     return false;
   }
 
   try {
     const bundled = fs.readFileSync(BUNDLED_CAPTURE_HELPER_PATH, 'utf8');
-    if (fs.existsSync(CAPTURE_HELPER_PATH)) {
+    const bundledShared = fs.readFileSync(BUNDLED_SHARED_RUNTIME_PATH, 'utf8');
+    const hasCurrentCapture = fs.existsSync(CAPTURE_HELPER_PATH);
+    const hasCurrentShared = fs.existsSync(SHARED_RUNTIME_PATH);
+    if (hasCurrentCapture && hasCurrentShared) {
       const current = fs.readFileSync(CAPTURE_HELPER_PATH, 'utf8');
-      if (current === bundled) {
+      const currentShared = fs.readFileSync(SHARED_RUNTIME_PATH, 'utf8');
+      if (current === bundled && currentShared === bundledShared) {
         return true;
       }
     }
     fs.writeFileSync(CAPTURE_HELPER_PATH, bundled);
+    fs.writeFileSync(SHARED_RUNTIME_PATH, bundledShared);
     return true;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
