@@ -6,8 +6,9 @@ import { execSync, spawn } from 'child_process';
 
 let cachedPythonCommand: string | null | undefined;
 const validatedDepsByPython = new Set<string>();
-const CAPTURE_HELPER_PATH = path.join(os.tmpdir(), 'oculix_capture_helper.py');
-const SHARED_RUNTIME_PATH = path.join(os.tmpdir(), 'oculix_screen_runtime.py');
+const CAPTURE_HELPER_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'oculix-capture-'));
+const CAPTURE_HELPER_PATH = path.join(CAPTURE_HELPER_DIR, 'oculix_capture_helper.py');
+const SHARED_RUNTIME_PATH = path.join(CAPTURE_HELPER_DIR, 'oculix_screen_runtime.py');
 const BUNDLED_CAPTURE_HELPER_PATH = path.join(
   __dirname,
   '..',
@@ -127,8 +128,10 @@ function ensureCaptureHelperScript(): boolean {
         return true;
       }
     }
-    fs.writeFileSync(CAPTURE_HELPER_PATH, bundled);
-    fs.writeFileSync(SHARED_RUNTIME_PATH, bundledShared);
+    fs.writeFileSync(CAPTURE_HELPER_PATH, bundled, { mode: 0o600 });
+    fs.writeFileSync(SHARED_RUNTIME_PATH, bundledShared, { mode: 0o600 });
+    fs.chmodSync(CAPTURE_HELPER_PATH, 0o600);
+    fs.chmodSync(SHARED_RUNTIME_PATH, 0o600);
     return true;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

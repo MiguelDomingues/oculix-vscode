@@ -14,8 +14,9 @@ export type TestPatternResult = { apply: false } | { apply: true; value: number 
 
 // Tracks the currently-running test overlay so a new request can replace it.
 let activeProc: ChildProcess | null = null;
-const TEST_HELPER_TEMP_PATH = path.join(os.tmpdir(), 'oculix_test_pattern.py');
-const SHARED_RUNTIME_TEMP_PATH = path.join(os.tmpdir(), 'oculix_screen_runtime.py');
+const TEST_HELPER_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'oculix-test-'));
+const TEST_HELPER_TEMP_PATH = path.join(TEST_HELPER_DIR, 'oculix_test_pattern.py');
+const SHARED_RUNTIME_TEMP_PATH = path.join(TEST_HELPER_DIR, 'oculix_screen_runtime.py');
 const BUNDLED_TEST_HELPER_PATH = path.join(
   __dirname,
   '..',
@@ -227,8 +228,10 @@ function ensureTestPatternHelperScript(): string | null {
         return TEST_HELPER_TEMP_PATH;
       }
     }
-    fs.writeFileSync(TEST_HELPER_TEMP_PATH, bundled);
-    fs.writeFileSync(SHARED_RUNTIME_TEMP_PATH, bundledShared);
+    fs.writeFileSync(TEST_HELPER_TEMP_PATH, bundled, { mode: 0o600 });
+    fs.writeFileSync(SHARED_RUNTIME_TEMP_PATH, bundledShared, { mode: 0o600 });
+    fs.chmodSync(TEST_HELPER_TEMP_PATH, 0o600);
+    fs.chmodSync(SHARED_RUNTIME_TEMP_PATH, 0o600);
     return TEST_HELPER_TEMP_PATH;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

@@ -31,15 +31,16 @@ export class PatternHoverProvider implements vscode.HoverProvider {
 
       const imageUri = vscode.Uri.file(imagePath);
       const md = new vscode.MarkdownString();
-      md.isTrusted = true;
-      md.supportHtml = true;
+      md.isTrusted = false;
 
       const stats = fs.statSync(imagePath);
       const sizeKb = (stats.size / 1024).toFixed(1);
 
-      md.appendMarkdown(`**${filename}** (${sizeKb} KB)\n\n`);
-      md.appendMarkdown(`![${filename}](${imageUri.toString()})\n\n`);
-      md.appendMarkdown(`\`📁 ${imagePath}\``);
+      md.appendText(`${filename} (${sizeKb} KB)`);
+      md.appendMarkdown('\n\n');
+      md.appendMarkdown(`![](${imageUri.toString()})`);
+      md.appendMarkdown('\n\n');
+      md.appendText(`Path: ${imagePath}`);
 
       const range = new vscode.Range(
         position.line, matchStart,
