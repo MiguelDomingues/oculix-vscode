@@ -47,7 +47,8 @@ function resolveOverlayDimColor(config: vscode.WorkspaceConfiguration): string {
 export async function captureScreen(
   imageDir: string,
   targetFilename?: string,
-  onStatus?: (message: string) => void
+  onStatus?: (message: string) => void,
+  delaySecondsOverride?: number
 ): Promise<string | null> {
   const filename = targetFilename ?? `${Date.now()}.png`;
   const outputPath = path.join(imageDir, filename);
@@ -56,6 +57,13 @@ export async function captureScreen(
   const minimizeDelayMs = Number.isFinite(configuredDelayMs)
     ? Math.max(0, Math.min(2000, Math.round(configuredDelayMs)))
     : 125;
+  const configuredCaptureDelaySeconds =
+    typeof delaySecondsOverride === 'number'
+      ? delaySecondsOverride
+      : config.get<number>('captureDelaySeconds', 3);
+  const captureDelaySeconds = Number.isFinite(configuredCaptureDelaySeconds)
+    ? Math.max(0, Math.min(30, Math.round(configuredCaptureDelaySeconds)))
+    : 3;
   const overlayDimAlpha = resolveOverlayDimAlpha(config);
   const overlayDimColor = resolveOverlayDimColor(config);
 
@@ -87,6 +95,7 @@ export async function captureScreen(
       CAPTURE_HELPER_PATH,
       outputPath,
       String(minimizeDelayMs),
+      String(captureDelaySeconds),
       String(overlayDimAlpha),
       overlayDimColor,
     ]);

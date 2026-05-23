@@ -97,6 +97,13 @@
           "maximum": 2000,
           "description": "Delay in milliseconds after minimizing VS Code before showing the capture overlay. Lower is faster; higher can avoid capturing minimize animation artifacts."
         },
+        "oculix.captureDelaySeconds": {
+          "type": "number",
+          "default": 3,
+          "minimum": 0,
+          "maximum": 30,
+          "description": "Countdown duration in seconds before freezing the screen for region selection."
+        },
         "oculix.previewImageHeight": {
           "type": "number",
           "default": 200,

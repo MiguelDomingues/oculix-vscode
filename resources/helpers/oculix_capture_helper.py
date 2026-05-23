@@ -1,4 +1,5 @@
 import sys
+import time
 from typing import Any, cast
 
 import tkinter as tk
@@ -23,15 +24,73 @@ try:
 except Exception:
     minimize_delay_ms = 125.0
 
+try:
+    capture_delay_seconds = int(round(float(sys.argv[3]))) if len(sys.argv) >= 4 else 3
+except Exception:
+    capture_delay_seconds = 3
+
 if minimize_delay_ms < 0:
     minimize_delay_ms = 0.0
 if minimize_delay_ms > 2000:
     minimize_delay_ms = 2000.0
 
-OVERLAY_DIM_ALPHA = clamp_overlay_alpha(sys.argv[3]) if len(sys.argv) >= 4 else 150
-OVERLAY_DIM_COLOR = sys.argv[4] if len(sys.argv) >= 5 else "#FFFFFF"
+if capture_delay_seconds < 0:
+    capture_delay_seconds = 0
+if capture_delay_seconds > 30:
+    capture_delay_seconds = 30
+
+OVERLAY_DIM_ALPHA = clamp_overlay_alpha(sys.argv[4]) if len(sys.argv) >= 5 else 150
+OVERLAY_DIM_COLOR = sys.argv[5] if len(sys.argv) >= 6 else "#FFFFFF"
+
+
+def show_countdown(seconds: int, primary: dict[str, int]) -> None:
+    if seconds <= 0:
+        return
+
+    countdown_root = tk.Tk()
+    countdown_root.overrideredirect(True)
+    cast(Any, countdown_root).attributes("-topmost", True)
+    countdown_root.configure(bg="#222")
+
+    label = tk.Label(
+        countdown_root,
+        text="",
+        bg="#222",
+        fg="white",
+        font=("Helvetica", 18),
+        padx=7,
+        pady=3,
+    )
+    label.pack()
+
+    p_left = int(primary["left"])
+    p_top = int(primary["top"])
+    p_width = int(primary["width"])
+
+    min_text = f"Capture starts in {seconds}s..."
+    label.configure(text=min_text)
+    countdown_root.update_idletasks()
+    min_width = countdown_root.winfo_width() + 10
+    min_height = countdown_root.winfo_height()
+
+    def place(width: int, height: int) -> None:
+        pos_x = p_left + max(0, (p_width - width) // 2)
+        pos_y = p_top + 24
+        countdown_root.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+
+    place(min_width, min_height)
+
+    for remaining in range(seconds, 0, -1):
+        label.configure(text=f"Capture starts in {remaining}s...")
+        countdown_root.update()
+        time.sleep(1)
+
+    countdown_root.destroy()
 
 minimize_foreground(minimize_delay_ms)
+
+virtual, primary, _ = capture_virtual_screen()
+show_countdown(capture_delay_seconds, primary)
 
 virtual, primary, frozen_img = capture_virtual_screen()
 

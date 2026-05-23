@@ -35,7 +35,7 @@ export function activate(context: vscode.ExtensionContext) {
   // ── Capture region command ──
   const captureRegionCmd = vscode.commands.registerCommand(
     'oculix.captureRegion',
-    async () => {
+    async (options?: { captureDelaySeconds?: number }) => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
         vscode.window.showErrorMessage('No active editor.');
@@ -52,9 +52,15 @@ export function activate(context: vscode.ExtensionContext) {
         { location: vscode.ProgressLocation.Notification, title: 'OculiX: Preparing capture...' },
         async (progress) => {
           const reportStatus = (message: string) => progress.report({ message });
-          const filename = await captureScreen(imageDir, undefined, reportStatus);
+          const filename = await captureScreen(
+            imageDir,
+            undefined,
+            reportStatus,
+            options?.captureDelaySeconds
+          );
           if (filename) {
             insertPatternReference(editor, filename);
+            vscode.window.showInformationMessage(`Captured: ${filename}`);
           }
         }
       );

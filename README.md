@@ -152,6 +152,7 @@ All settings live under **Settings → Extensions → OculiX for VS Code**.
 | `oculix.imageFolder` | `""` | Folder for saved images, relative to the first workspace folder. Leave empty to save in the same folder as the active script. |
 | `oculix.captureHelper` | `"auto"` | Which capture helper to use. Reserved for future native helpers; today `"auto"` and `"python"` are equivalent. |
 | `oculix.captureMinimizeDelayMs` | `125` | Delay (ms) after minimizing VS Code before showing the capture overlay. Lower is faster; higher can avoid minimize-animation artifacts in screenshots. Range: 0–2000. |
+| `oculix.captureDelaySeconds` | `3` | Countdown duration (seconds) shown at the top-center before the screen is frozen for region selection. Range: 0–30. |
 | `oculix.overlayDimPercent` | `60` | Overlay dim amount used during capture and test modes. Higher values dim more. Range: 0–100. |
 | `oculix.overlayDimColor` | `"#FFFFFF"` | Overlay tint color used during capture and test modes. |
 | `oculix.previewImageHeight` | `200` | Maximum height (px) of each thumbnail in the preview panel. Aspect ratio is preserved. Range: 24–1200. |
