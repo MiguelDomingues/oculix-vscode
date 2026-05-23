@@ -10,6 +10,15 @@ import { cleanupUnreferencedImages } from './imageCleanup';
 export function activate(context: vscode.ExtensionContext) {
   console.log('OculiX for VS Code activated');
 
+  const previewSerializer = vscode.window.registerWebviewPanelSerializer(
+    OculixPreviewPanel.viewType,
+    {
+      async deserializeWebviewPanel(webviewPanel, state) {
+        OculixPreviewPanel.revive(webviewPanel, context.extensionUri, state);
+      },
+    }
+  );
+
   // ── Register hover provider for Pattern("...") references ──
   const hoverProvider = vscode.languages.registerHoverProvider(
     { language: 'python' },
@@ -73,6 +82,7 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   context.subscriptions.push(
+    previewSerializer,
     hoverProvider,
     completionProvider,
     captureRegionCmd,

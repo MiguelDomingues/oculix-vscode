@@ -11,6 +11,7 @@ const MIN_IMAGE_HEIGHT = 24;
 const MAX_IMAGE_HEIGHT = 1200;
 
 export class OculixPreviewPanel {
+  static readonly viewType = 'oculixPreview';
   private static currentPanel: OculixPreviewPanel | undefined;
 
   private readonly panel: vscode.WebviewPanel;
@@ -25,16 +26,11 @@ export class OculixPreviewPanel {
       existing.setDocument(doc);
       return;
     }
-    new OculixPreviewPanel(doc, extensionUri);
-  }
 
-  private constructor(doc: vscode.TextDocument, extensionUri: vscode.Uri) {
-    this.docUri = doc.uri;
-    const localResourceRoots = this.getLocalResourceRoots(doc.uri);
-
-    this.panel = vscode.window.createWebviewPanel(
-      'oculixPreview',
-      this.getTitleForDoc(doc.uri),
+    const localResourceRoots = OculixPreviewPanel.getLocalResourceRoots(doc.uri);
+    const panel = vscode.window.createWebviewPanel(
+      OculixPreviewPanel.viewType,
+      OculixPreviewPanel.getTitleForDoc(doc.uri),
       { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
       {
         enableScripts: true,
@@ -42,6 +38,42 @@ export class OculixPreviewPanel {
         localResourceRoots,
       }
     );
+
+    new OculixPreviewPanel(panel, doc.uri, extensionUri);
+  }
+
+  static revive(
+    panel: vscode.WebviewPanel,
+    extensionUri: vscode.Uri,
+    state: unknown
+  ): void {
+    const stateObj = state as { docUri?: unknown } | undefined;
+    let fromState: vscode.Uri | undefined;
+    if (typeof stateObj?.docUri === 'string' && stateObj.docUri.length > 0) {
+      try {
+        fromState = vscode.Uri.parse(stateObj.docUri);
+      } catch {
+        fromState = undefined;
+      }
+    }
+
+    const activeDoc = vscode.window.activeTextEditor?.document;
+    const fallback = activeDoc && activeDoc.languageId === 'python' ? activeDoc.uri : undefined;
+    const docUri = fromState ?? fallback;
+
+    new OculixPreviewPanel(panel, docUri, extensionUri);
+  }
+
+  private constructor(panel: vscode.WebviewPanel, docUri: vscode.Uri | undefined, extensionUri: vscode.Uri) {
+    this.panel = panel;
+    this.docUri = docUri;
+
+    this.panel.title = OculixPreviewPanel.getTitleForDoc(docUri);
+    this.panel.webview.options = {
+      ...this.panel.webview.options,
+      enableScripts: true,
+      localResourceRoots: OculixPreviewPanel.getLocalResourceRoots(docUri),
+    };
 
     this.panel.iconPath = vscode.Uri.joinPath(extensionUri, 'resources', 'oculix.png');
 
@@ -130,14 +162,14 @@ export class OculixPreviewPanel {
     this.sendInitialActiveLine();
   }
 
-  private getTitleForDoc(docUri: vscode.Uri | undefined): string {
+  private static getTitleForDoc(docUri: vscode.Uri | undefined): string {
     if (!docUri) {
       return 'OculiX Preview';
     }
     return `OculiX Preview ${path.basename(docUri.fsPath)}`;
   }
 
-  private getLocalResourceRoots(docUri: vscode.Uri | undefined): vscode.Uri[] {
+  private static getLocalResourceRoots(docUri: vscode.Uri | undefined): vscode.Uri[] {
     const workspaceRoots = (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri);
     if (!docUri) {
       return workspaceRoots;
@@ -160,10 +192,11 @@ export class OculixPreviewPanel {
     }
 
     this.docUri = nextUri;
-    this.panel.title = this.getTitleForDoc(nextUri);
+    this.panel.title = OculixPreviewPanel.getTitleForDoc(nextUri);
+    this.panel.webview.postMessage({ type: 'persistState', docUri: nextUri?.toString() });
     this.panel.webview.options = {
       ...this.panel.webview.options,
-      localResourceRoots: this.getLocalResourceRoots(nextUri),
+      localResourceRoots: OculixPreviewPanel.getLocalResourceRoots(nextUri),
     };
     this.update();
     this.sendInitialActiveLine();
@@ -394,6 +427,7 @@ export class OculixPreviewPanel {
 
     const webview = this.panel.webview;
     const nonce = generateNonce();
+    const docUriState = JSON.stringify(doc.uri.toString());
     const lines = doc.getText().split(/\r?\n/);
 
     const renderedLines = lines
@@ -588,6 +622,7 @@ export class OculixPreviewPanel {
 ${renderedLines}
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
+  vscode.setState({ ...(vscode.getState() || {}), docUri: ${docUriState} });
   let activeEl = null;
 
   // Track Ctrl/Cmd held state via mousemove so .pattern-img can flip between
@@ -826,6 +861,14 @@ ${renderedLines}
           next.scrollIntoView({ block: 'center', behavior: 'smooth' });
         }
       }
+    } else if (msg && msg.type === 'persistState') {
+      const nextState = { ...(vscode.getState() || {}) };
+      if (typeof msg.docUri === 'string' && msg.docUri.length > 0) {
+        nextState.docUri = msg.docUri;
+      } else {
+        delete nextState.docUri;
+      }
+      vscode.setState(nextState);
     }
   });
 
