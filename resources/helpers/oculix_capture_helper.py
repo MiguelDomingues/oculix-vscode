@@ -1,10 +1,8 @@
 import sys
-import os
+from typing import Any, cast
 
-HELPER_DIR = os.path.dirname(os.path.abspath(__file__))
-if HELPER_DIR not in sys.path:
-    sys.path.insert(0, HELPER_DIR)
-
+import tkinter as tk
+from PIL import Image, ImageTk
 from oculix_screen_runtime import (
     build_dim_overlay,
     capture_virtual_screen,
@@ -21,42 +19,39 @@ if len(sys.argv) < 2:
 OUTPUT_PATH = sys.argv[1]
 
 try:
-    MINIMIZE_DELAY_MS = float(sys.argv[2]) if len(sys.argv) >= 3 else 125.0
+    minimize_delay_ms = float(sys.argv[2]) if len(sys.argv) >= 3 else 125.0
 except Exception:
-    MINIMIZE_DELAY_MS = 125.0
+    minimize_delay_ms = 125.0
 
-if MINIMIZE_DELAY_MS < 0:
-    MINIMIZE_DELAY_MS = 0.0
-if MINIMIZE_DELAY_MS > 2000:
-    MINIMIZE_DELAY_MS = 2000.0
+if minimize_delay_ms < 0:
+    minimize_delay_ms = 0.0
+if minimize_delay_ms > 2000:
+    minimize_delay_ms = 2000.0
 
 OVERLAY_DIM_ALPHA = clamp_overlay_alpha(sys.argv[3]) if len(sys.argv) >= 4 else 150
 OVERLAY_DIM_COLOR = sys.argv[4] if len(sys.argv) >= 5 else "#FFFFFF"
 
-minimize_foreground(MINIMIZE_DELAY_MS)
-
-import tkinter as tk
-from PIL import Image, ImageTk
+minimize_foreground(minimize_delay_ms)
 
 virtual, primary, frozen_img = capture_virtual_screen()
 
-V_LEFT = virtual["left"]
-V_TOP = virtual["top"]
-V_WIDTH = virtual["width"]
-V_HEIGHT = virtual["height"]
+V_LEFT: int = int(virtual["left"])
+V_TOP: int = int(virtual["top"])
+V_WIDTH: int = int(virtual["width"])
+V_HEIGHT: int = int(virtual["height"])
 
-P_LEFT = primary["left"] - V_LEFT
-P_TOP = primary["top"] - V_TOP
-P_WIDTH = primary["width"]
+P_LEFT: int = int(primary["left"]) - V_LEFT
+P_TOP: int = int(primary["top"]) - V_TOP
+P_WIDTH: int = int(primary["width"])
 
 start_x = start_y = end_x = end_y = 0
 selecting = False
-rect_id = None
+rect_id: int | None = None
 
 root = tk.Tk()
 root.overrideredirect(True)
 root.geometry(f"{V_WIDTH}x{V_HEIGHT}+{V_LEFT}+{V_TOP}")
-root.attributes("-topmost", True)
+cast(Any, root).attributes("-topmost", True)
 root.configure(bg="black")
 
 canvas = tk.Canvas(root, cursor="crosshair", bg="black", highlightthickness=0)
@@ -66,10 +61,15 @@ canvas.pack(fill=tk.BOTH, expand=True)
 frozen_pil = mss_frame_to_pil(frozen_img)
 frozen_rgba = frozen_pil.convert("RGBA")
 dim_overlay_rgba = build_dim_overlay(V_WIDTH, V_HEIGHT, OVERLAY_DIM_ALPHA, OVERLAY_DIM_COLOR)
-preview_tk = None
+preview_tk: ImageTk.PhotoImage | None = None
 
 
-def update_preview_with_hole(x1=None, y1=None, x2=None, y2=None):
+def update_preview_with_hole(
+    x1: int | None = None,
+    y1: int | None = None,
+    x2: int | None = None,
+    y2: int | None = None,
+) -> None:
     global preview_tk
     preview = Image.alpha_composite(frozen_rgba, dim_overlay_rgba)
 
@@ -90,7 +90,7 @@ def update_preview_with_hole(x1=None, y1=None, x2=None, y2=None):
     if bg:
         canvas.itemconfigure(bg[0], image=preview_tk)
     else:
-        canvas.create_image(0, 0, image=preview_tk, anchor="nw", tags="bg")
+        cast(Any, canvas).create_image(0, 0, image=preview_tk, anchor="nw", tags="bg")
 
 
 update_preview_with_hole()
@@ -105,7 +105,7 @@ label = tk.Label(
 label.place(x=P_LEFT + P_WIDTH // 2, y=P_TOP + 24, anchor="n")
 
 
-def on_press(e):
+def on_press(e: Any) -> None:
     global start_x, start_y, selecting, rect_id
     start_x, start_y = e.x, e.y
     selecting = True
@@ -117,7 +117,7 @@ def on_press(e):
     )
 
 
-def on_drag(e):
+def on_drag(e: Any) -> None:
     global rect_id
     if selecting and rect_id:
         update_preview_with_hole(start_x, start_y, e.x, e.y)
@@ -125,13 +125,13 @@ def on_drag(e):
         canvas.tag_raise(rect_id)
 
 
-def on_release(e):
+def on_release(e: Any) -> None:
     global end_x, end_y
     end_x, end_y = e.x, e.y
     root.quit()
 
 
-def on_escape(e):
+def on_escape(e: Any) -> None:
     global start_x, start_y, end_x, end_y
     start_x = start_y = end_x = end_y = 0
     root.quit()

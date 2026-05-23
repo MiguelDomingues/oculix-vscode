@@ -1,6 +1,7 @@
 import sys
 import time
 import re
+from typing import Any, cast
 
 _saved_hwnd = 0
 DEFAULT_OVERLAY_DIM_ALPHA = 200
@@ -55,25 +56,25 @@ def restore_foreground() -> None:
     u.SetForegroundWindow(_saved_hwnd)
 
 
-def capture_virtual_screen():
+def capture_virtual_screen() -> tuple[dict[str, int], dict[str, int], Any]:
     import mss
 
-    with mss.mss() as sct:
-        monitors = sct.monitors
+    with cast(Any, mss.mss)() as sct_any:
+        monitors: list[dict[str, int]] = cast(list[dict[str, int]], sct_any.monitors)
         virtual = monitors[0]
         primary = monitors[1] if len(monitors) > 1 else virtual
-        frame = sct.grab(virtual)
+        frame: Any = sct_any.grab(virtual)
 
     return virtual, primary, frame
 
 
-def mss_frame_to_pil(frame):
+def mss_frame_to_pil(frame: Any):
     from PIL import Image
 
     return Image.frombytes("RGB", frame.size, frame.rgb)
 
 
-def clamp_overlay_alpha(value, default: int = DEFAULT_OVERLAY_DIM_ALPHA) -> int:
+def clamp_overlay_alpha(value: Any, default: int = DEFAULT_OVERLAY_DIM_ALPHA) -> int:
     try:
         numeric = int(round(float(value)))
     except Exception:
@@ -81,7 +82,9 @@ def clamp_overlay_alpha(value, default: int = DEFAULT_OVERLAY_DIM_ALPHA) -> int:
     return max(0, min(255, numeric))
 
 
-def parse_overlay_color_hex(value, default: str = DEFAULT_OVERLAY_DIM_COLOR_HEX):
+def parse_overlay_color_hex(
+    value: Any, default: str = DEFAULT_OVERLAY_DIM_COLOR_HEX
+) -> tuple[int, int, int]:
     candidate = value if isinstance(value, str) else ""
     if not re.fullmatch(r"#[0-9A-Fa-f]{6}", candidate):
         candidate = default
@@ -97,7 +100,7 @@ def build_dim_overlay(
     height: int,
     alpha: int = DEFAULT_OVERLAY_DIM_ALPHA,
     color_hex: str = DEFAULT_OVERLAY_DIM_COLOR_HEX,
-):
+) -> Any:
     from PIL import Image
 
     safe_alpha = clamp_overlay_alpha(alpha)

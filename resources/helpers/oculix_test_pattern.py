@@ -1,9 +1,10 @@
-import os
 import sys
+from typing import Any, cast
+import tkinter as tk
 
-HELPER_DIR = os.path.dirname(os.path.abspath(__file__))
-if HELPER_DIR not in sys.path:
-    sys.path.insert(0, HELPER_DIR)
+import cv2
+import numpy as np
+from PIL import Image, ImageTk
 
 from oculix_screen_runtime import (
     build_dim_overlay,
@@ -13,11 +14,6 @@ from oculix_screen_runtime import (
     mss_frame_to_pil,
     restore_foreground,
 )
-
-import tkinter as tk
-import cv2
-import numpy as np
-from PIL import Image, ImageTk
 
 if len(sys.argv) < 3:
     print("error: missing args", file=sys.stderr)
@@ -61,9 +57,9 @@ try:
 
     print("ready", flush=True)
 
-    def find_matches(threshold, max_matches=50):
+    def find_matches(threshold: float, max_matches: int = 50) -> list[tuple[int, int, float]]:
         work = result.copy()
-        matches = []
+        matches: list[tuple[int, int, float]] = []
         while len(matches) < max_matches:
             _, max_val, _, max_loc = cv2.minMaxLoc(work)
             if max_val < threshold:
@@ -83,28 +79,28 @@ try:
     root = tk.Tk()
     root.overrideredirect(True)
     root.geometry(f"{V_WIDTH}x{V_HEIGHT}+{V_LEFT}+{V_TOP}")
-    root.attributes("-topmost", True)
-    root.attributes("-fullscreen", False)
+    cast(Any, root).attributes("-topmost", True)
+    cast(Any, root).attributes("-fullscreen", False)
     root.configure(bg="black")
 
     canvas = tk.Canvas(root, bg="black", highlightthickness=0)
     canvas.pack(fill=tk.BOTH, expand=True)
     # Render the dimmed background once; redraw only dynamic overlays per tick.
     preview_tk = ImageTk.PhotoImage(dimmed_base_rgba.convert("RGB"))
-    canvas.create_image(0, 0, image=preview_tk, anchor="nw", tags="bg")
-    clear_hole_images = []
+    cast(Any, canvas).create_image(0, 0, image=preview_tk, anchor="nw", tags="bg")
+    clear_hole_images: list[ImageTk.PhotoImage] = []
 
     status = tk.Label(
         root, text="", bg="#222", fg="white", font=("Helvetica", 13), padx=14, pady=5
     )
     status.place(x=P_LEFT + P_WIDTH // 2, y=P_TOP + 24, anchor="n")
 
-    def redraw():
+    def redraw() -> None:
         global clear_hole_images
         canvas.delete("clear-hole")
         canvas.delete("match")
         clear_hole_images = []
-        matches = find_matches(current_threshold)
+        matches: list[tuple[int, int, float]] = find_matches(current_threshold)
         for x, y, score in matches:
             sx1 = max(0, min(V_WIDTH, x))
             sx2 = max(0, min(V_WIDTH, x + PW))
@@ -114,7 +110,9 @@ try:
                 clear_region = frozen_rgba.crop((sx1, sy1, sx2, sy2)).convert("RGB")
                 clear_tk = ImageTk.PhotoImage(clear_region)
                 clear_hole_images.append(clear_tk)
-                canvas.create_image(sx1, sy1, image=clear_tk, anchor="nw", tags="clear-hole")
+                cast(Any, canvas).create_image(
+                    sx1, sy1, image=clear_tk, anchor="nw", tags="clear-hole"
+                )
 
             canvas.create_rectangle(
                 x, y, x + PW, y + PH, outline="#ffcc00", width=3, tags="match"
@@ -154,27 +152,27 @@ try:
             )
         )
 
-    def step_threshold(direction, fine=False):
+    def step_threshold(direction: int, fine: bool = False) -> None:
         global current_threshold
         step = 0.01 if fine else 0.05
         new_val = max(0.0, min(1.0, current_threshold + direction * step))
         current_threshold = round(new_val * 100) / 100
         redraw()
 
-    def on_wheel(e):
+    def on_wheel(e: Any) -> None:
         direction = 1 if e.delta > 0 else -1
         step_threshold(direction, fine=bool(e.state & 0x1))
 
-    def on_wheel_up(e):
+    def on_wheel_up(e: Any) -> None:
         step_threshold(1)
 
-    def on_wheel_down(e):
+    def on_wheel_down(e: Any) -> None:
         step_threshold(-1)
 
-    def on_escape(e):
+    def on_escape(e: Any) -> None:
         root.quit()
 
-    def on_enter(e):
+    def on_enter(e: Any) -> None:
         global applied
         applied = True
         root.quit()
@@ -197,12 +195,12 @@ try:
 
     redraw()
 
-    def force_overlay_focus():
+    def force_overlay_focus() -> None:
         try:
             root.deiconify()
             root.state("normal")
-            root.lift()
-            root.attributes("-topmost", True)
+            cast(Any, root).lift()
+            cast(Any, root).attributes("-topmost", True)
             canvas.focus_set()
             canvas.focus_force()
             root.focus_force()
