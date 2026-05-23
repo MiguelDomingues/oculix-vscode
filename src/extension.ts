@@ -61,7 +61,7 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showErrorMessage('Open a Python file to preview it.');
         return;
       }
-      OculixPreviewPanel.createOrShow(editor.document);
+      OculixPreviewPanel.createOrShow(editor.document, context.extensionUri);
     }
   );
 

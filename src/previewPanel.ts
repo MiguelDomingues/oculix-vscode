@@ -18,17 +18,17 @@ export class OculixPreviewPanel {
   private readonly disposables: vscode.Disposable[] = [];
   private debounceTimer?: NodeJS.Timeout;
 
-  static createOrShow(doc: vscode.TextDocument): void {
+  static createOrShow(doc: vscode.TextDocument, extensionUri: vscode.Uri): void {
     const existing = OculixPreviewPanel.currentPanel;
     if (existing) {
       existing.panel.reveal(vscode.ViewColumn.Beside, true);
       existing.setDocument(doc);
       return;
     }
-    new OculixPreviewPanel(doc);
+    new OculixPreviewPanel(doc, extensionUri);
   }
 
-  private constructor(doc: vscode.TextDocument) {
+  private constructor(doc: vscode.TextDocument, extensionUri: vscode.Uri) {
     this.docUri = doc.uri;
     const localResourceRoots = this.getLocalResourceRoots(doc.uri);
 
@@ -42,6 +42,8 @@ export class OculixPreviewPanel {
         localResourceRoots,
       }
     );
+
+    this.panel.iconPath = vscode.Uri.joinPath(extensionUri, 'resources', 'oculix.png');
 
     OculixPreviewPanel.currentPanel = this;
 
@@ -132,7 +134,7 @@ export class OculixPreviewPanel {
     if (!docUri) {
       return 'OculiX Preview';
     }
-    return `OculiX Preview: ${path.basename(docUri.fsPath)}`;
+    return `OculiX Preview ${path.basename(docUri.fsPath)}`;
   }
 
   private getLocalResourceRoots(docUri: vscode.Uri | undefined): vscode.Uri[] {
