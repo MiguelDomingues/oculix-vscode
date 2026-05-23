@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { ChildProcess, execSync, spawn } from 'child_process';
+import { ChildProcess, execFileSync, spawn } from 'child_process';
 import { resolveImagePath } from './pathResolver';
 
 export type TestPatternRequest = {
@@ -201,7 +201,7 @@ async function installPackages(
   try {
     const status = `Installing dependencies: ${packages.join(', ')}...`;
     onStatus?.(status);
-    execSync(`${python} -m pip install ${packages.join(' ')}`, { stdio: 'pipe' });
+    execFileSync(python, ['-m', 'pip', 'install', ...packages], { stdio: 'pipe' });
     return true;
   } catch {
     return false;
@@ -243,8 +243,13 @@ function ensureTestPatternHelperScript(): string | null {
 function detectPython(): string | null {
   for (const cmd of ['python3', 'python']) {
     try {
-      const out = execSync(`${cmd} --version`, { stdio: 'pipe' }).toString();
-      if (out.includes('Python 3')) {
+      // Use a Python one-liner that prints to stdout so detection is stable
+      // across platforms and Python distributions.
+      const out = execFileSync(cmd, ['-c', 'import sys; print(sys.version_info[0])'], {
+        stdio: 'pipe',
+        encoding: 'utf8',
+      }).trim();
+      if (out === '3') {
         return cmd;
       }
     } catch {
@@ -263,7 +268,7 @@ function checkPythonDeps(python: string, packages: string[]): string[] {
   for (const pkg of packages) {
     const importName = importNames[pkg] || pkg;
     try {
-      execSync(`${python} -c "import ${importName}"`, { stdio: 'pipe' });
+      execFileSync(python, ['-c', `import ${importName}`], { stdio: 'pipe' });
     } catch {
       missing.push(pkg);
     }

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { execSync, spawn } from 'child_process';
+import { execFileSync, spawn } from 'child_process';
 
 let cachedPythonCommand: string | null | undefined;
 const validatedDepsByPython = new Set<string>();
@@ -166,7 +166,7 @@ async function ensureCaptureDependencies(
 
   try {
     onStatus?.(`Installing dependencies: ${missing.join(', ')}...`);
-    execSync(`${python} -m pip install ${missing.join(' ')}`, { stdio: 'pipe' });
+    execFileSync(python, ['-m', 'pip', 'install', ...missing], { stdio: 'pipe' });
     validatedDepsByPython.add(python);
     return true;
   } catch {
@@ -182,8 +182,13 @@ function detectPythonCached(): string | null {
 
   for (const cmd of ['python3', 'python']) {
     try {
-      const out = execSync(`${cmd} --version`, { stdio: 'pipe' }).toString();
-      if (out.includes('Python 3')) {
+      // Use a Python one-liner that prints to stdout so detection is stable
+      // across platforms and Python distributions.
+      const out = execFileSync(cmd, ['-c', 'import sys; print(sys.version_info[0])'], {
+        stdio: 'pipe',
+        encoding: 'utf8',
+      }).trim();
+      if (out === '3') {
         cachedPythonCommand = cmd;
         return cachedPythonCommand;
       }
@@ -200,7 +205,7 @@ function checkPythonDeps(python: string): string[] {
   const missing: string[] = [];
   for (const pkg of packages) {
     try {
-      execSync(`${python} -c "import ${pkg === 'Pillow' ? 'PIL' : pkg}"`, { stdio: 'pipe' });
+      execFileSync(python, ['-c', `import ${pkg === 'Pillow' ? 'PIL' : pkg}`], { stdio: 'pipe' });
     } catch {
       missing.push(pkg);
     }
