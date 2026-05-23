@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { resolveImagePath } from './pathResolver';
+import { IMAGE_REF_REGEX, resolveImagePath } from './pathResolver';
 import { runPatternTest } from './testPattern';
 import { captureScreen } from './capture';
 
@@ -27,7 +27,7 @@ export class OculixPreviewPanel {
       return;
     }
 
-    const localResourceRoots = OculixPreviewPanel.getLocalResourceRoots(doc.uri);
+    const localResourceRoots = OculixPreviewPanel.getLocalResourceRoots(doc);
     const panel = vscode.window.createWebviewPanel(
       OculixPreviewPanel.viewType,
       OculixPreviewPanel.getTitleForDoc(doc.uri),
@@ -72,7 +72,7 @@ export class OculixPreviewPanel {
     this.panel.webview.options = {
       ...this.panel.webview.options,
       enableScripts: true,
-      localResourceRoots: OculixPreviewPanel.getLocalResourceRoots(docUri),
+      localResourceRoots: OculixPreviewPanel.getLocalResourceRoots(undefined),
     };
 
     this.panel.iconPath = vscode.Uri.joinPath(extensionUri, 'resources', 'oculix.png');
@@ -169,13 +169,27 @@ export class OculixPreviewPanel {
     return `OculiX Preview ${path.basename(docUri.fsPath)}`;
   }
 
-  private static getLocalResourceRoots(docUri: vscode.Uri | undefined): vscode.Uri[] {
-    const workspaceRoots = (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri);
-    if (!docUri) {
-      return workspaceRoots;
+  private static getLocalResourceRoots(doc: vscode.TextDocument | undefined): vscode.Uri[] {
+    if (!doc || doc.languageId !== 'python') {
+      return [];
     }
-    const scriptDir = path.dirname(docUri.fsPath);
-    return [vscode.Uri.file(scriptDir), ...workspaceRoots];
+
+    const roots = new Set<string>();
+    roots.add(path.dirname(doc.uri.fsPath));
+
+    // Add only directories that actually contain image files referenced by this doc.
+    const text = doc.getText();
+    IMAGE_REF_REGEX.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = IMAGE_REF_REGEX.exec(text)) !== null) {
+      const filename = match[1];
+      const imagePath = resolveImagePath(doc.uri, filename);
+      if (imagePath) {
+        roots.add(path.dirname(imagePath));
+      }
+    }
+
+    return Array.from(roots).map((rootPath) => vscode.Uri.file(rootPath));
   }
 
   private setDocument(doc: vscode.TextDocument | undefined): void {
@@ -196,7 +210,7 @@ export class OculixPreviewPanel {
     this.panel.webview.postMessage({ type: 'persistState', docUri: nextUri?.toString() });
     this.panel.webview.options = {
       ...this.panel.webview.options,
-      localResourceRoots: OculixPreviewPanel.getLocalResourceRoots(nextUri),
+      localResourceRoots: OculixPreviewPanel.getLocalResourceRoots(doc),
     };
     this.update();
     this.sendInitialActiveLine();
@@ -257,6 +271,10 @@ export class OculixPreviewPanel {
       this.panel.webview.html = this.renderClosedDocHtml();
       return;
     }
+    this.panel.webview.options = {
+      ...this.panel.webview.options,
+      localResourceRoots: OculixPreviewPanel.getLocalResourceRoots(doc),
+    };
     this.panel.webview.html = this.renderHtml(doc);
     this.sendInitialActiveLine();
   }
