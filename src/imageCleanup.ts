@@ -13,7 +13,7 @@ import * as fs from 'fs';
  */
 export async function cleanupUnreferencedImages(savedDoc: vscode.TextDocument): Promise<void> {
   const config = vscode.workspace.getConfiguration('oculix');
-  if (!config.get<boolean>('cleanupUnreferencedImagesOnSave', true)) {
+  if (!config.get<boolean>('cleanupUnreferencedImagesOnSave', false)) {
     return;
   }
 
