@@ -5,6 +5,10 @@ on:
     tags:
       - "v*"
 
+concurrency:
+  group: release-publish
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -12,6 +16,8 @@ jobs:
   release:
     name: Build, package, and publish release
     runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 30
 
     steps:
       - name: Check out repository
