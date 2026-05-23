@@ -57,14 +57,14 @@ export async function runPatternTest(
   void vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
-      title: 'OculiX: preparing test overlay…',
+      title: 'OculiX: Preparing test mode...',
       cancellable: false,
     },
     async (progress) => {
       reportProgress = (message: string) => {
         progress.report({ message });
       };
-      reportProgress('Validating request…');
+      reportProgress('Initializing...');
       await progressPromise;
     }
   );
@@ -80,14 +80,14 @@ export async function runPatternTest(
     activeProc = null;
   }
 
-  reportProgress('Resolving image…');
+  reportProgress('Retrieving image...');
   const imagePath = resolveImagePath(docUri, req.filename);
   if (!imagePath || !fs.existsSync(imagePath)) {
     vscode.window.showErrorMessage(`OculiX Test: image not found — ${req.filename}`);
     return finish({ apply: false });
   }
 
-  reportProgress('Checking Python environment…');
+  reportProgress('Verifying Python 3 installation...');
   const python = detectPython();
   if (!python) {
     vscode.window.showErrorMessage(
@@ -96,10 +96,10 @@ export async function runPatternTest(
     return finish({ apply: false });
   }
 
-  reportProgress('Checking dependencies…');
+  reportProgress('Checking dependencies...');
   const missing = checkPythonDeps(python, ['mss', 'opencv-python', 'Pillow']);
   if (missing.length > 0) {
-    reportProgress('Waiting for dependency install confirmation…');
+    reportProgress('Waiting for dependency install confirmation...');
     const choice = await vscode.window.showInformationMessage(
       `OculiX Test mode needs ${missing.join(', ')}. Install now?`,
       'Install', 'Cancel'
@@ -116,7 +116,7 @@ export async function runPatternTest(
     }
   }
 
-  reportProgress('Preparing test helper…');
+  reportProgress('Preparing capture...');
   const helperPath = ensureTestPatternHelperScript();
   if (!helperPath) {
     return finish({ apply: false });
@@ -127,7 +127,7 @@ export async function runPatternTest(
   const overlayDimColor = resolveOverlayDimColor(config);
 
   return new Promise((resolve) => {
-    reportProgress('Launching analyzer…');
+    reportProgress('Launching test and adjust mode...');
     const proc = spawn(python, [
       helperPath,
       imagePath,
@@ -136,7 +136,7 @@ export async function runPatternTest(
       overlayDimColor,
     ]);
     activeProc = proc;
-    reportProgress('Analyzing screen…');
+    reportProgress('Analyzing screen...');
 
     // Dismiss the progress as soon as the helper finishes analysis and the
     // interactive overlay is ready.
@@ -198,7 +198,7 @@ async function installPackages(
   onStatus?: (message: string) => void
 ): Promise<boolean> {
   try {
-    const status = `Installing dependencies: ${packages.join(', ')}…`;
+    const status = `Installing dependencies: ${packages.join(', ')}...`;
     onStatus?.(status);
     execSync(`${python} -m pip install ${packages.join(' ')}`, { stdio: 'pipe' });
     return true;

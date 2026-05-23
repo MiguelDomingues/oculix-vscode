@@ -46,7 +46,6 @@ export function activate(context: vscode.ExtensionContext) {
           const filename = await captureScreen(imageDir, undefined, reportStatus);
           if (filename) {
             insertPatternReference(editor, filename);
-            vscode.window.showInformationMessage(`Captured: ${filename}`);
           }
         }
       );

@@ -17,7 +17,7 @@ hover(Pattern("1625708569739.png").similar(.85).targetOffset(-179, 18))
 wait("1641594720892.png", 20).click()
 ```
 
-…is painful to read in a plain text editor because the filenames are opaque hashes. This extension makes OculiX scripts approachable inside VS Code so the existing tooling around your repository — git, code review, search-and-replace, linting workflows — keeps working without losing the visual pattern context. It does so by:
+...is painful to read in a plain text editor because the filenames are opaque hashes. This extension makes OculiX scripts approachable inside VS Code so the existing tooling around your repository — git, code review, search-and-replace, linting workflows — keeps working without losing the visual pattern context. It does so by:
 
 1. **Previewing scripts** in a side panel (like Markdown preview) that replaces image-filename literals with the actual thumbnails — so you can see what each pattern looks like while reviewing a PR or skimming a diff. `Pattern("foo.png").targetOffset(x, y)` collapses to just the image with a crosshair where the target offset lands.
 2. **Testing patterns interactively** — click a thumbnail, the extension scans your screen for matches using the same `cv2.matchTemplate` algorithm OculiX uses internally, and lets you adjust the similarity threshold with the scroll wheel. Useful for verifying that a teammate's threshold still holds, or for debugging why a step has stopped matching.
@@ -37,7 +37,7 @@ Plus the small things: hover image previews directly in the editor, syntax highl
 
 - Open with `Ctrl+Shift+V` / `Cmd+Shift+V`, the **preview icon** in the editor title bar, or right-click → `OculiX: Open Preview to the Side`.
 - Renders your `.py` as syntax-highlighted code, replacing any `"*.png"` string literal with an actual thumbnail of the image.
-  - When wrapped in `Pattern("…")`, the wrapper is hidden so the image stands alone.
+  - When wrapped in `Pattern("...")`, the wrapper is hidden so the image stands alone.
   - Outside of `Pattern(...)` (e.g. `wait("foo.png")`, `click("foo.png")`), the image renders inline next to the surrounding code.
 - **Live updates** as you edit (250 ms debounce).
 - **Cursor sync** — moving the cursor in the editor highlights the corresponding line in the preview and scrolls it into view if off-screen.

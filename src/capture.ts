@@ -58,10 +58,10 @@ export async function captureScreen(
   const overlayDimAlpha = resolveOverlayDimAlpha(config);
   const overlayDimColor = resolveOverlayDimColor(config);
 
-  onStatus?.('Checking Python environment...');
+  onStatus?.('Verifying Python 3 installation...');
 
   // Copy bundled helper script to a stable temp path and pass runtime args.
-  onStatus?.('Preparing capture helper...');
+  onStatus?.('Preparing capture...');
   if (!ensureCaptureHelperScript()) {
     return null;
   }
@@ -81,7 +81,7 @@ export async function captureScreen(
   }
 
   return new Promise((resolve) => {
-    onStatus?.('Opening capture overlay...');
+    onStatus?.('Launching capture mode...');
     const proc = spawn(python, [
       CAPTURE_HELPER_PATH,
       outputPath,
