@@ -53,6 +53,7 @@ export class OculixScriptRunner {
   private readonly statusBar: vscode.StatusBarItem;
   private activeProcess: ChildProcess | null = null;
   private activeRunCancelToken = 0;
+  private activeRunTempDir: string | null = null;
 
   constructor(private readonly context: vscode.ExtensionContext) {
     this.output = vscode.window.createOutputChannel('OculiX: Run');
@@ -63,6 +64,11 @@ export class OculixScriptRunner {
   }
 
   dispose(): void {
+    const tempDir = this.activeRunTempDir;
+    this.activeRunTempDir = null;
+    if (tempDir) {
+      void cleanupTempDir(tempDir);
+    }
     this.output.dispose();
     this.statusBar.dispose();
   }
@@ -118,6 +124,7 @@ export class OculixScriptRunner {
     const args = ['-jar', runtime.jarPath, '-r', materialized.bundlePath];
     const proc = spawn(javaCommand, args, { stdio: 'pipe' });
     this.activeProcess = proc;
+    this.activeRunTempDir = materialized.tempDir;
 
     const startedLines = materialized.lineNumbers;
     void vscode.commands.executeCommand('oculix.previewRunEvent', {
@@ -141,6 +148,11 @@ export class OculixScriptRunner {
     await new Promise<void>((resolve) => {
       proc.on('close', (code, signal) => {
         const wasReplaced = runId !== this.activeRunCancelToken;
+        const tempDir = materialized.tempDir;
+        if (this.activeRunTempDir === tempDir) {
+          this.activeRunTempDir = null;
+        }
+        void cleanupTempDir(tempDir);
         if (wasReplaced) {
           resolve();
           return;
@@ -705,6 +717,7 @@ export class OculixScriptRunner {
 
 type MaterializedBundle = {
   bundlePath: string;
+  tempDir: string;
   lineNumbers: number[];
   startLine: number;
 };
@@ -773,9 +786,18 @@ async function materializeRunBundle(
     .map(({ absoluteLine }) => absoluteLine);
   return {
     bundlePath,
+    tempDir: tempParent,
     lineNumbers,
     startLine,
   };
+}
+
+async function cleanupTempDir(tempDir: string): Promise<void> {
+  try {
+    await fsp.rm(tempDir, { recursive: true, force: true });
+  } catch {
+    // Best-effort cleanup.
+  }
 }
 
 function expandStatementAtLine(lines: string[], line: number): { start: number; end: number } {
