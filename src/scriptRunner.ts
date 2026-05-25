@@ -127,8 +127,11 @@ export class OculixScriptRunner {
     });
 
     let stderr = '';
+    let stdout = '';
     proc.stdout?.on('data', (chunk: Buffer | string) => {
-      this.output.append(chunk.toString());
+      const text = chunk.toString();
+      stdout += text;
+      this.output.append(text);
     });
     proc.stderr?.on('data', (chunk: Buffer | string) => {
       const text = chunk.toString();
@@ -155,6 +158,13 @@ export class OculixScriptRunner {
           type: 'runFinished',
           status,
           lines: startedLines,
+          errorLine: status === 'failed'
+            ? (() => {
+                const scriptLine = parseScriptErrorLine(stdout + stderr);
+                if (scriptLine === null) { return undefined; }
+                return materialized.startLine + (scriptLine - 1);
+              })()
+            : undefined,
         });
 
       this.restoreVSCode(vsCodeWindow);
@@ -690,6 +700,7 @@ export class OculixScriptRunner {
 type MaterializedBundle = {
   bundlePath: string;
   lineNumbers: number[];
+  startLine: number;
 };
 
 async function materializeRunBundle(
@@ -757,6 +768,7 @@ async function materializeRunBundle(
   return {
     bundlePath,
     lineNumbers,
+    startLine,
   };
 }
 
@@ -884,6 +896,16 @@ function isTrustedDownloadUrl(url: string): boolean {
   } catch {
     return false;
   }
+}
+
+function parseScriptErrorLine(stderr: string): number | null {
+  // Matches: [error] script [ <name> ] stopped with error in line <N>
+  const match = stderr.match(/\[error\]\s+script\s+\[.*?\]\s+stopped with error in line\s+(\d+)/);
+  if (match) {
+    const n = Number.parseInt(match[1], 10);
+    return Number.isFinite(n) && n >= 1 ? n : null;
+  }
+  return null;
 }
 
 async function sha256File(filePath: string): Promise<string> {

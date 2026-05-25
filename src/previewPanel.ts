@@ -978,17 +978,30 @@ ${renderedLines}
 
   function handleRunEvent(evt) {
     if (evt.type === 'runStarted') {
-      resetRunClasses();
       markLines(evt.lines, 'run-pending');
       return;
     }
     if (evt.type === 'runFinished') {
-      const cls = evt.status === 'success'
-        ? 'run-success'
-        : evt.status === 'failed'
-          ? 'run-failed'
-          : 'run-cancelled';
-      markLines(evt.lines, cls);
+      if (evt.status === 'success') {
+        markLines(evt.lines, 'run-success');
+      } else if (evt.status === 'failed' && typeof evt.errorLine === 'number') {
+        const allLines = Array.isArray(evt.lines) ? evt.lines.map(Number).filter(Number.isFinite) : [];
+        const before = allLines.filter((l) => l < evt.errorLine);
+        const errorLines = allLines.filter((l) => l === evt.errorLine);
+        const after = allLines.filter((l) => l > evt.errorLine);
+        markLines(before, 'run-success');
+        markLines(errorLines, 'run-failed');
+        after.forEach((l) => {
+          const el = document.querySelector('.line[data-line="' + l + '"]');
+          if (!el) return;
+          el.classList.remove('run-pending', 'run-success', 'run-failed', 'run-cancelled');
+          runMarked.delete(l);
+        });
+      } else if (evt.status === 'failed') {
+        markLines(evt.lines, 'run-failed');
+      } else {
+        markLines(evt.lines, 'run-cancelled');
+      }
     }
   }
 
