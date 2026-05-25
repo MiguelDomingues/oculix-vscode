@@ -521,7 +521,8 @@ export class OculixPreviewPanel {
     .line.run-pending .gutter::before,
     .line.run-success .gutter::before,
     .line.run-failed .gutter::before,
-    .line.run-cancelled .gutter::before {
+    .line.run-cancelled .gutter::before,
+    .line.run-skipped .gutter::before {
       display: inline-block;
       font: normal normal normal 16px/1 codicon;
       text-rendering: auto;
@@ -544,6 +545,10 @@ export class OculixPreviewPanel {
     .line.run-cancelled .gutter::before {
       content: '\\ead7';
       color: var(--vscode-testing-iconUnset, var(--vscode-terminal-ansiMagenta, #c586c0));
+    }
+    .line.run-skipped .gutter::before {
+      content: '\\eb32';
+      color: var(--vscode-descriptionForeground, var(--vscode-terminal-ansiBrightBlack, #808080));
     }
     .lineno {
       color: var(--vscode-editorLineNumber-foreground, #858585);
@@ -957,7 +962,7 @@ ${renderedLines}
     runMarked.forEach((line) => {
       const el = document.querySelector('.line[data-line="' + line + '"]');
       if (!el) return;
-      el.classList.remove('run-pending', 'run-success', 'run-failed', 'run-cancelled');
+      el.classList.remove('run-pending', 'run-success', 'run-failed', 'run-cancelled', 'run-skipped');
     });
     runMarked.clear();
   }
@@ -970,7 +975,7 @@ ${renderedLines}
       const el = document.querySelector('.line[data-line="' + n + '"]');
       if (!el) return;
       if (el.dataset.blank === '1') return;
-      el.classList.remove('run-pending', 'run-success', 'run-failed', 'run-cancelled');
+      el.classList.remove('run-pending', 'run-success', 'run-failed', 'run-cancelled', 'run-skipped');
       el.classList.add(className);
       runMarked.add(n);
     });
@@ -989,13 +994,25 @@ ${renderedLines}
         const before = allLines.filter((l) => l < evt.errorLine);
         const errorLines = allLines.filter((l) => l === evt.errorLine);
         const after = allLines.filter((l) => l > evt.errorLine);
+        const endOfPortion = allLines.length > 0 ? Math.max(...allLines) : evt.errorLine;
+        const staleAfterPortion = Array.from(runMarked)
+          .filter((l) => Number.isFinite(l) && l > endOfPortion);
         markLines(before, 'run-success');
         markLines(errorLines, 'run-failed');
         after.forEach((l) => {
           const el = document.querySelector('.line[data-line="' + l + '"]');
           if (!el) return;
-          el.classList.remove('run-pending', 'run-success', 'run-failed', 'run-cancelled');
+          el.classList.remove('run-pending', 'run-success', 'run-failed', 'run-cancelled', 'run-skipped');
           runMarked.delete(l);
+        });
+        staleAfterPortion.forEach((l) => {
+          const el = document.querySelector('.line[data-line="' + l + '"]');
+          if (!el) return;
+          if (el.dataset.blank === '1') return;
+          if (!el.classList.contains('run-success')) return;
+          el.classList.remove('run-pending', 'run-success', 'run-failed', 'run-cancelled', 'run-skipped');
+          el.classList.add('run-skipped');
+          runMarked.add(l);
         });
       } else if (evt.status === 'failed') {
         markLines(evt.lines, 'run-failed');
