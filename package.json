@@ -36,6 +36,26 @@
         "command": "oculix.openPreview",
         "title": "OculiX: Open Preview to the Side",
         "icon": "resources/oculix.png"
+      },
+      {
+        "command": "oculix.runScript",
+        "title": "OculiX: Run Script",
+        "icon": "$(play)"
+      },
+      {
+        "command": "oculix.runCurrentLine",
+        "title": "OculiX: Run Current Line",
+        "icon": "$(debug-step-over)"
+      },
+      {
+        "command": "oculix.runSelection",
+        "title": "OculiX: Run Selection",
+        "icon": "$(selection)"
+      },
+      {
+        "command": "oculix.stopRun",
+        "title": "OculiX: Stop Run",
+        "icon": "$(debug-stop)"
       }
     ],
     "keybindings": [
@@ -50,6 +70,12 @@
         "key": "ctrl+shift+v",
         "mac": "cmd+shift+v",
         "when": "editorTextFocus && editorLangId == python"
+      },
+      {
+        "command": "oculix.runScript",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r",
+        "when": "editorTextFocus && editorLangId == python"
       }
     ],
     "menus": {
@@ -63,6 +89,26 @@
           "command": "oculix.openPreview",
           "when": "editorLangId == python",
           "group": "oculix"
+        },
+        {
+          "command": "oculix.runScript",
+          "when": "editorLangId == python",
+          "group": "oculix@10"
+        },
+        {
+          "command": "oculix.runCurrentLine",
+          "when": "editorLangId == python",
+          "group": "oculix@11"
+        },
+        {
+          "command": "oculix.runSelection",
+          "when": "editorLangId == python && editorHasSelection",
+          "group": "oculix@12"
+        },
+        {
+          "command": "oculix.stopRun",
+          "when": "editorLangId == python && oculix.isRunning",
+          "group": "oculix@13"
         }
       ],
       "editor/title": [
@@ -70,6 +116,11 @@
           "command": "oculix.openPreview",
           "when": "editorLangId == python",
           "group": "navigation"
+        },
+        {
+          "command": "oculix.runScript",
+          "when": "editorLangId == python",
+          "group": "navigation@10"
         }
       ]
     },
@@ -128,6 +179,37 @@
           "type": "boolean",
           "default": false,
           "description": "On save of a Python file, move any .png in the image folder that is not referenced by name in any .py file in the workspace to the trash. References inside comments count."
+        },
+        "oculix.runtimeMode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "path"
+          ],
+          "default": "auto",
+          "description": "How to resolve OculiX runtime: auto manages runtime downloads, path uses oculix.runtimeJarPath."
+        },
+        "oculix.runtimeJarPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to an OculiX IDE runtime JAR (used when oculix.runtimeMode is path)."
+        },
+        "oculix.runtimeVersion": {
+          "type": "string",
+          "default": "latest",
+          "description": "Runtime version used in auto mode. Use latest or an explicit version like 3.0.4."
+        },
+        "oculix.runtimeUpdateCheckOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "When using auto + latest runtime mode, checks for new runtime versions in the background when extension activates."
+        },
+        "oculix.runtimeUpdateCheckIntervalHours": {
+          "type": "number",
+          "default": 24,
+          "minimum": 1,
+          "maximum": 720,
+          "description": "Minimum interval, in hours, between background runtime update checks in auto + latest mode."
         }
       }
     },

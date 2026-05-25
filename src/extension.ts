@@ -6,9 +6,13 @@ import { PatternHoverProvider } from './hoverProvider';
 import { OculixCompletionProvider } from './completionProvider';
 import { OculixPreviewPanel } from './previewPanel';
 import { cleanupUnreferencedImages } from './imageCleanup';
+import { OculixScriptRunner } from './scriptRunner';
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('OculiX for VS Code activated');
+  void vscode.commands.executeCommand('setContext', 'oculix.isRunning', false);
+
+  const runner = new OculixScriptRunner(context);
 
   const previewSerializer = vscode.window.registerWebviewPanelSerializer(
     OculixPreviewPanel.viewType,
@@ -80,6 +84,30 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // ── Run commands ──
+  const runScriptCmd = vscode.commands.registerCommand('oculix.runScript', async () => {
+    await runner.run({ scope: 'script' });
+  });
+
+  const runCurrentLineCmd = vscode.commands.registerCommand('oculix.runCurrentLine', async () => {
+    await runner.run({ scope: 'currentLine' });
+  });
+
+  const runSelectionCmd = vscode.commands.registerCommand('oculix.runSelection', async () => {
+    await runner.run({ scope: 'selection' });
+  });
+
+  const stopRunCmd = vscode.commands.registerCommand('oculix.stopRun', () => {
+    runner.stop();
+  });
+
+  const previewRunEventCmd = vscode.commands.registerCommand(
+    'oculix.previewRunEvent',
+    (event: unknown) => {
+      OculixPreviewPanel.postRunEvent(event);
+    }
+  );
+
   // ── Clean up unreferenced images on save ──
   const saveListener = vscode.workspace.onDidSaveTextDocument((doc) => {
     if (doc.languageId === 'python') {
@@ -88,13 +116,22 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   context.subscriptions.push(
+    runner,
     previewSerializer,
     hoverProvider,
     completionProvider,
     captureRegionCmd,
     openPreviewCmd,
+    runScriptCmd,
+    runCurrentLineCmd,
+    runSelectionCmd,
+    stopRunCmd,
+    previewRunEventCmd,
     saveListener
   );
+
+  // Run periodic metadata checks for latest runtime in the background.
+  void runner.checkForRuntimeUpdatesOnStartup();
 }
 
 /**

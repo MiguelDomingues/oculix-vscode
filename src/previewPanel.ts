@@ -14,6 +14,14 @@ export class OculixPreviewPanel {
   static readonly viewType = 'oculixPreview';
   private static currentPanel: OculixPreviewPanel | undefined;
 
+  static postRunEvent(event: unknown): void {
+    const panel = OculixPreviewPanel.currentPanel;
+    if (!panel) {
+      return;
+    }
+    panel.panel.webview.postMessage({ type: 'runEvent', event });
+  }
+
   private readonly panel: vscode.WebviewPanel;
   private docUri: vscode.Uri | undefined;
   private readonly disposables: vscode.Disposable[] = [];
@@ -489,6 +497,18 @@ export class OculixPreviewPanel {
       color: var(--vscode-editorLineNumber-activeForeground, var(--vscode-foreground));
       font-weight: 600;
     }
+    .line.run-pending .lineno::after,
+    .line.run-success .lineno::after,
+    .line.run-failed .lineno::after,
+    .line.run-cancelled .lineno::after {
+      margin-left: 6px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .line.run-pending .lineno::after { content: 'RUN'; color: var(--vscode-terminal-ansiYellow, #d7ba7d); }
+    .line.run-success .lineno::after { content: 'OK'; color: var(--vscode-terminal-ansiGreen, #4ec9b0); }
+    .line.run-failed .lineno::after { content: 'FAIL'; color: var(--vscode-terminal-ansiRed, #f48771); }
+    .line.run-cancelled .lineno::after { content: 'STOP'; color: var(--vscode-terminal-ansiMagenta, #c586c0); }
     .lineno {
       color: var(--vscode-editorLineNumber-foreground, #858585);
       min-width: 3em;
@@ -642,6 +662,7 @@ ${renderedLines}
   const vscode = acquireVsCodeApi();
   vscode.setState({ ...(vscode.getState() || {}), docUri: ${docUriState} });
   let activeEl = null;
+  const runMarked = new Set();
 
   // Track Ctrl/Cmd held state via mousemove so .pattern-img can flip between
   // pointer (default — test mode) and crosshair (Ctrl held — set targetOffset).
@@ -890,8 +911,48 @@ ${renderedLines}
         delete nextState.docUri;
       }
       vscode.setState(nextState);
+    } else if (msg && msg.type === 'runEvent' && msg.event) {
+      handleRunEvent(msg.event);
     }
   });
+
+  function resetRunClasses() {
+    runMarked.forEach((line) => {
+      const el = document.querySelector('.line[data-line="' + line + '"]');
+      if (!el) return;
+      el.classList.remove('run-pending', 'run-success', 'run-failed', 'run-cancelled');
+    });
+    runMarked.clear();
+  }
+
+  function markLines(lines, className) {
+    if (!Array.isArray(lines)) return;
+    lines.forEach((line) => {
+      const n = Number(line);
+      if (!Number.isFinite(n)) return;
+      const el = document.querySelector('.line[data-line="' + n + '"]');
+      if (!el) return;
+      el.classList.remove('run-pending', 'run-success', 'run-failed', 'run-cancelled');
+      el.classList.add(className);
+      runMarked.add(n);
+    });
+  }
+
+  function handleRunEvent(evt) {
+    if (evt.type === 'runStarted') {
+      resetRunClasses();
+      markLines(evt.lines, 'run-pending');
+      return;
+    }
+    if (evt.type === 'runFinished') {
+      const cls = evt.status === 'success'
+        ? 'run-success'
+        : evt.status === 'failed'
+          ? 'run-failed'
+          : 'run-cancelled';
+      markLines(evt.lines, cls);
+    }
+  }
 
   function positionCrosshair(wrap) {
     const img = wrap.querySelector('.pattern-img');
