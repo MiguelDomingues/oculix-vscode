@@ -12,7 +12,7 @@ const RUNTIME_DIR_NAME = 'runtime';
 const MANIFEST_NAME = 'runtime-manifest.json';
 const DEFAULT_INTERVAL_HOURS = 24;
 
-const IMAGE_REF_REGEX = /["']([^"'\n]+\.png)["']/gi;
+const IMAGE_REF_REGEX = /["']([^"'\n]+[.]png)["']/gi;
 
 type RuntimeMode = 'auto' | 'path';
 type RunScope = 'script' | 'currentLine' | 'selection';
@@ -844,7 +844,7 @@ function clampLine(line: number, total: number): number {
 }
 
 function parseJavaMajor(versionText: string): number {
-  const quoted = versionText.match(/"(\d+)(?:\.(\d+))?.*"/);
+  const quoted = versionText.match(/"(\d+)(?:[.](\d+))?.*"/);
   if (quoted) {
     const major = Number.parseInt(quoted[1], 10);
     if (major === 1 && quoted[2]) {
@@ -853,7 +853,7 @@ function parseJavaMajor(versionText: string): number {
     return major;
   }
 
-  const direct = versionText.match(/(\d+)\./);
+  const direct = versionText.match(/(\d+)[.]/);
   if (direct) {
     return Number.parseInt(direct[1], 10);
   }
