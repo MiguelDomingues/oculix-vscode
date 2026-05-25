@@ -6,13 +6,12 @@ import * as https from 'https';
 import * as os from 'os';
 import * as path from 'path';
 import { ChildProcess, spawn, spawnSync } from 'child_process';
+import { IMAGE_REF_REGEX, resolveImagePath } from './pathResolver';
 
 const GITHUB_API_BASE = 'https://api.github.com/repos/oculix-org/Oculix/releases';
 const RUNTIME_DIR_NAME = 'runtime';
 const MANIFEST_NAME = 'runtime-manifest.json';
 const DEFAULT_INTERVAL_HOURS = 24;
-
-const IMAGE_REF_REGEX = /["']([^"'\n]+[.]png)["']/gi;
 
 type RuntimeMode = 'auto' | 'path';
 type RunScope = 'script' | 'currentLine' | 'selection';
@@ -754,17 +753,17 @@ async function materializeRunBundle(
   const scriptPath = path.join(bundlePath, `${scriptBaseName}.py`);
   await fsp.writeFile(scriptPath, selectedText, 'utf8');
 
-  // Copy image dependencies used by this scope, if they resolve near the source file.
-  const sourceDir = path.dirname(doc.fileName);
+  // Copy image dependencies used by this scope using shared image resolution.
   IMAGE_REF_REGEX.lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = IMAGE_REF_REGEX.exec(selectedText)) !== null) {
     const imageName = match[1];
-    const sourcePath = path.join(sourceDir, imageName);
-    if (!fs.existsSync(sourcePath)) {
+    const sourcePath = resolveImagePath(doc.uri, imageName);
+    if (!sourcePath) {
       continue;
     }
     const targetPath = path.join(bundlePath, imageName);
+    await fsp.mkdir(path.dirname(targetPath), { recursive: true });
     await fsp.copyFile(sourcePath, targetPath);
   }
 
