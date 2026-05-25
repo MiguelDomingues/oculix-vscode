@@ -23,6 +23,7 @@ export class OculixPreviewPanel {
   }
 
   private readonly panel: vscode.WebviewPanel;
+  private readonly extensionUri: vscode.Uri;
   private docUri: vscode.Uri | undefined;
   private readonly disposables: vscode.Disposable[] = [];
   private debounceTimer?: NodeJS.Timeout;
@@ -35,7 +36,7 @@ export class OculixPreviewPanel {
       return;
     }
 
-    const localResourceRoots = OculixPreviewPanel.getLocalResourceRoots(doc);
+    const localResourceRoots = OculixPreviewPanel.getLocalResourceRoots(doc, extensionUri);
     const panel = vscode.window.createWebviewPanel(
       OculixPreviewPanel.viewType,
       OculixPreviewPanel.getTitleForDoc(doc.uri),
@@ -74,13 +75,14 @@ export class OculixPreviewPanel {
 
   private constructor(panel: vscode.WebviewPanel, docUri: vscode.Uri | undefined, extensionUri: vscode.Uri) {
     this.panel = panel;
+    this.extensionUri = extensionUri;
     this.docUri = docUri;
 
     this.panel.title = OculixPreviewPanel.getTitleForDoc(docUri);
     this.panel.webview.options = {
       ...this.panel.webview.options,
       enableScripts: true,
-      localResourceRoots: OculixPreviewPanel.getLocalResourceRoots(undefined),
+      localResourceRoots: OculixPreviewPanel.getLocalResourceRoots(undefined, extensionUri),
     };
 
     this.panel.iconPath = vscode.Uri.joinPath(extensionUri, 'resources', 'oculix.png');
@@ -177,12 +179,14 @@ export class OculixPreviewPanel {
     return `OculiX Preview ${path.basename(docUri.fsPath)}`;
   }
 
-  private static getLocalResourceRoots(doc: vscode.TextDocument | undefined): vscode.Uri[] {
+  private static getLocalResourceRoots(doc: vscode.TextDocument | undefined, extensionUri: vscode.Uri): vscode.Uri[] {
+    const roots = new Set<string>();
+    roots.add(extensionUri.fsPath);
+
     if (!doc || doc.languageId !== 'python') {
-      return [];
+      return Array.from(roots).map((rootPath) => vscode.Uri.file(rootPath));
     }
 
-    const roots = new Set<string>();
     roots.add(path.dirname(doc.uri.fsPath));
 
     // Add only directories that actually contain image files referenced by this doc.
@@ -218,7 +222,7 @@ export class OculixPreviewPanel {
     this.panel.webview.postMessage({ type: 'persistState', docUri: nextUri?.toString() });
     this.panel.webview.options = {
       ...this.panel.webview.options,
-      localResourceRoots: OculixPreviewPanel.getLocalResourceRoots(doc),
+      localResourceRoots: OculixPreviewPanel.getLocalResourceRoots(doc, this.extensionUri),
     };
     this.update();
     this.sendInitialActiveLine();
@@ -281,7 +285,7 @@ export class OculixPreviewPanel {
     }
     this.panel.webview.options = {
       ...this.panel.webview.options,
-      localResourceRoots: OculixPreviewPanel.getLocalResourceRoots(doc),
+      localResourceRoots: OculixPreviewPanel.getLocalResourceRoots(doc, this.extensionUri),
     };
     this.panel.webview.html = this.renderHtml(doc);
     this.sendInitialActiveLine();
@@ -453,14 +457,19 @@ export class OculixPreviewPanel {
 
     const webview = this.panel.webview;
     const nonce = generateNonce();
+    const codiconFontUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, 'node_modules', '@vscode', 'codicons', 'dist', 'codicon.ttf')
+    );
     const docUriState = JSON.stringify(doc.uri.toString());
     const lines = doc.getText().split(/\r?\n/);
+    const linenoDigits = String(lines.length).length;
+    const linenoWidth = `${linenoDigits + 0.5}ch`;
 
     const renderedLines = lines
       .map((line, idx) => {
         const rendered = renderLine(line, idx, doc.uri, webview);
         const isBlank = line.trim().length === 0 ? '1' : '0';
-        return `<div class="line" data-line="${idx}" data-blank="${isBlank}"><span class="lineno">${idx + 1}</span><span class="content">${rendered}</span></div>`;
+        return `<div class="line" data-line="${idx}" data-blank="${isBlank}"><span class="gutter"></span><span class="lineno">${idx + 1}</span><span class="content">${rendered}</span></div>`;
       })
       .join('\n');
 
@@ -468,9 +477,14 @@ export class OculixPreviewPanel {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource}; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource}; font-src ${webview.cspSource}; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
   <title>OculiX Preview</title>
   <style>
+    @font-face {
+      font-family: 'codicon';
+      font-display: block;
+      src: url('${codiconFontUri}') format('truetype');
+    }
     body {
       font-family: var(--vscode-editor-font-family, monospace);
       font-size: var(--vscode-editor-font-size, 13px);
@@ -482,7 +496,7 @@ export class OculixPreviewPanel {
     .line {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 0;
       padding: 2px 4px;
       border-radius: 3px;
       cursor: pointer;
@@ -498,21 +512,42 @@ export class OculixPreviewPanel {
       color: var(--vscode-editorLineNumber-activeForeground, var(--vscode-foreground));
       font-weight: 600;
     }
-    .line.run-pending .lineno::after,
-    .line.run-success .lineno::after,
-    .line.run-failed .lineno::after,
-    .line.run-cancelled .lineno::after {
-      margin-left: 6px;
-      font-size: 11px;
-      font-weight: 700;
+    .gutter {
+      width: 18px;
+      flex-shrink: 0;
+      text-align: center;
+      user-select: none;
     }
-    .line.run-pending .lineno::after { content: 'RUN'; color: var(--vscode-terminal-ansiYellow, #d7ba7d); }
-    .line.run-success .lineno::after { content: 'OK'; color: var(--vscode-terminal-ansiGreen, #4ec9b0); }
-    .line.run-failed .lineno::after { content: 'FAIL'; color: var(--vscode-terminal-ansiRed, #f48771); }
-    .line.run-cancelled .lineno::after { content: 'STOP'; color: var(--vscode-terminal-ansiMagenta, #c586c0); }
+    .line.run-pending .gutter::before,
+    .line.run-success .gutter::before,
+    .line.run-failed .gutter::before,
+    .line.run-cancelled .gutter::before {
+      display: inline-block;
+      font: normal normal normal 16px/1 codicon;
+      text-rendering: auto;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      vertical-align: -1px;
+    }
+    .line.run-pending .gutter::before {
+      content: '\\ea82';
+      color: var(--vscode-testing-iconQueued, var(--vscode-terminal-ansiYellow, #d7ba7d));
+    }
+    .line.run-success .gutter::before {
+      content: '\\eba4';
+      color: var(--vscode-testing-iconPassed, var(--vscode-terminal-ansiGreen, #4ec9b0));
+    }
+    .line.run-failed .gutter::before {
+      content: '\\ea87';
+      color: var(--vscode-testing-iconFailed, var(--vscode-terminal-ansiRed, #f48771));
+    }
+    .line.run-cancelled .gutter::before {
+      content: '\\ead7';
+      color: var(--vscode-testing-iconUnset, var(--vscode-terminal-ansiMagenta, #c586c0));
+    }
     .lineno {
       color: var(--vscode-editorLineNumber-foreground, #858585);
-      min-width: 3em;
+      min-width: ${linenoWidth};
       text-align: right;
       user-select: none;
       flex-shrink: 0;
@@ -521,6 +556,7 @@ export class OculixPreviewPanel {
       white-space: pre-wrap;
       flex: 1;
       word-break: break-word;
+      margin-left: 16px;
     }
     .pattern-img {
       max-height: ${maxImageHeight}px;
