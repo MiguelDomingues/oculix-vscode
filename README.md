@@ -2,7 +2,7 @@
 
 A VS Code extension that brings part of the [OculiX](https://github.com/oculix-org/Oculix) (the rebranded SikuliX) authoring workflow into the editor — region capture, inline image previews, and click-to-set target offsets — for people who write OculiX automation scripts in Python and prefer staying in VS Code.
 
-> ⚠️ **This is not a replacement for the OculiX IDE.** It does **not run scripts**. It is an authoring aid for the visual parts of writing a script (capturing patterns, reviewing them visually, fine-tuning target offsets and similarity). To execute your scripts, you still need the OculiX IDE or a comparable runtime.
+> ⚠️ **This is not a full replacement for the OculiX IDE.** It focuses on authoring workflows and now includes a basic script runner in VS Code. Advanced IDE-only capabilities (full debugger UX, recorder-first flows, rich image editing) still belong to the OculiX IDE.
 >
 > 🤖 **Vibe-coded, provided as-is.** This extension was built collaboratively with an AI coding assistant. It works for the workflows it was designed for, but it has not been broadly tested, security-reviewed, or hardened. No warranty, no SLA, no support promises. If something breaks or feels rough, please open an issue, but don't assume it will be fixed quickly.
 
@@ -24,6 +24,14 @@ wait("1641594720892.png", 20).click()
 3. **Capturing screen regions** as a convenience for the ad-hoc case where you want to add or replace a pattern without bouncing into the OculiX IDE. The result is a timestamped PNG + a matching `Pattern(...)` snippet at your cursor.
 
 Plus the small things: hover image previews directly in the editor, syntax highlighting for OculiX vocabulary, and an opt-out cleanup of unreferenced PNGs on save.
+
+It also includes run commands for:
+
+1. full script
+2. current logical statement from cursor line
+3. selected logical statement range
+
+During script execution, you can also use OculiX's default abort key combination to stop the run; the background runtime process captures it (`Alt+Shift+C` on Windows/Linux, `Cmd+Shift+C` on macOS).
 
 ---
 
@@ -81,8 +89,8 @@ Plus the small things: hover image previews directly in the editor, syntax highl
 This is the honest list of features the official IDE has that this extension intentionally or accidentally lacks:
 
 | Capability | OculiX IDE | This extension |
-|---|---|---|
-| **Run / debug scripts** | Yes | **No.** Use the OculiX IDE or its library. |
+| --- | --- | --- |
+| **Run / debug scripts** | Yes | **Run only** (full script/current line/selection). Full IDE debugger UX remains IDE-first. |
 | **In-line images directly in the editor** | Yes | No — VS Code's decoration API can't grow line heights. Inline image rendering happens in a side webview panel instead. |
 | **OCR / text recognition (`Text(...)`)** | Yes | Not handled. |
 | **App / window management primitives** (`App("...")`, focus/spawn) | Yes | Not handled. |
@@ -108,6 +116,7 @@ This is the honest list of features the official IDE has that this extension int
 
 - **VS Code** 1.85 or newer.
 - **Python 3** on your `PATH`.
+- **Java 11+** on your `PATH` (required for script execution).
 - **Python packages** — the extension offers to `pip install` these on first use of each feature:
   - `mss` and `Pillow` — region capture.
   - `opencv-python` — test mode (large download; only installed if you actually use test mode).
@@ -127,8 +136,12 @@ This is the honest list of features the official IDE has that this extension int
 ## Usage reference
 
 | Action | Where | Gesture |
-|---|---|---|
+| --- | --- | --- |
 | Capture a screen region | Editor | `Ctrl+Shift+S` / `Cmd+Shift+S` |
+| Run full script | Editor | `Ctrl+Shift+R` / `Cmd+Shift+R` |
+| Run current logical statement | Editor | Command Palette / context menu |
+| Run selected logical statement range | Editor | Select text + context menu |
+| Stop active run | Editor | Status bar `OculiX: Stop` / command palette |
 | Recapture an existing pattern (overwrites the PNG in place) | Preview panel | **Right-click** the thumbnail |
 | Open preview to the side | Editor | `Ctrl+Shift+V` / `Cmd+Shift+V` (or title-bar icon) |
 | Jump editor cursor to a preview line | Preview panel | Click anywhere on the line (off the image) |
@@ -148,15 +161,20 @@ This is the honest list of features the official IDE has that this extension int
 All settings live under **Settings → Extensions → OculiX for VS Code**.
 
 | Setting | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `oculix.imageFolder` | `""` | Folder for saved images, relative to the first workspace folder. Leave empty to save in the same folder as the active script. |
 | `oculix.captureHelper` | `"auto"` | Which capture helper to use. Reserved for future native helpers; today `"auto"` and `"python"` are equivalent. |
 | `oculix.captureMinimizeDelayMs` | `125` | Delay (ms) after minimizing VS Code before showing the capture overlay. Lower is faster; higher can avoid minimize-animation artifacts in screenshots. Range: 0–2000. |
 | `oculix.captureDelaySeconds` | `3` | Countdown duration (seconds) shown at the top-center before the screen is frozen for region selection. Range: 0–30. |
-| `oculix.overlayDimPercent` | `60` | Overlay dim amount used during capture and test modes. Higher values dim more. Range: 0–100. |
-| `oculix.overlayDimColor` | `"#FFFFFF"` | Overlay tint color used during capture and test modes. |
+| `oculix.overlayDimPercent` | `30` | Overlay dim amount used during capture and test modes. Higher values dim more. Range: 0–100. |
+| `oculix.overlayDimColor` | `"#000000"` | Overlay tint color used during capture and test modes. |
 | `oculix.previewImageHeight` | `200` | Maximum height (px) of each thumbnail in the preview panel. Aspect ratio is preserved. Range: 24–1200. |
 | `oculix.cleanupUnreferencedImagesOnSave` | `true` | Move PNGs in the image folder that aren't referenced in any `.py` to the OS trash when you save. Disable if you keep manual images alongside captured ones. |
+| `oculix.runtimeMode` | `"auto"` | Runtime resolution mode: `auto` manages runtime versions/downloads, `path` uses a user-provided JAR path. |
+| `oculix.runtimeJarPath` | `""` | Path to OculiX runtime JAR when `runtimeMode` is `path`. |
+| `oculix.runtimeVersion` | `"latest"` | Runtime version in `auto` mode: `latest` or an explicit version such as `3.0.4`. |
+| `oculix.runtimeUpdateCheckOnStartup` | `true` | In `auto + latest`, checks for updates in the background when the extension loads. |
+| `oculix.runtimeUpdateCheckIntervalHours` | `24` | Minimum interval between background runtime update checks. |
 
 ---
 
@@ -173,6 +191,7 @@ All settings live under **Settings → Extensions → OculiX for VS Code**.
 **Option A — from VS Code:** open the Command Palette (`Ctrl+Shift+P`) → **Tasks: Run Task** → **Setup**. This runs `npm install`, `pip install mss Pillow`, and `npm run compile` in sequence.
 
 **Option B — from a terminal:**
+
 ```bash
 npm install
 pip install mss Pillow
