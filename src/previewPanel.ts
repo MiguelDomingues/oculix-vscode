@@ -959,15 +959,6 @@ ${renderedLines}
     }
   });
 
-  function resetRunClasses() {
-    runMarked.forEach((line) => {
-      const el = document.querySelector('.line[data-line="' + line + '"]');
-      if (!el) return;
-      el.classList.remove('run-pending', 'run-success', 'run-failed', 'run-cancelled', 'run-skipped');
-    });
-    runMarked.clear();
-  }
-
   function markLines(lines, className) {
     if (!Array.isArray(lines)) return;
     lines.forEach((line) => {
