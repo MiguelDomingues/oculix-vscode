@@ -685,6 +685,10 @@ export class OculixScriptRunner {
             return;
           }
           const nextUrl = new URL(location, url).toString();
+          if (!isTrustedDownloadUrl(nextUrl)) {
+            onError(new Error(`Blocked redirect to untrusted host while fetching ${url}`));
+            return;
+          }
           this.makeRequest(nextUrl, onSuccess, onError, headers, redirects + 1);
           return;
         }
