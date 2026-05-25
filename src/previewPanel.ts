@@ -181,7 +181,8 @@ export class OculixPreviewPanel {
 
   private static getLocalResourceRoots(doc: vscode.TextDocument | undefined, extensionUri: vscode.Uri): vscode.Uri[] {
     const roots = new Set<string>();
-    roots.add(extensionUri.fsPath);
+    roots.add(vscode.Uri.joinPath(extensionUri, 'resources').fsPath);
+    roots.add(vscode.Uri.joinPath(extensionUri, 'node_modules', '@vscode', 'codicons', 'dist').fsPath);
 
     if (!doc || doc.languageId !== 'python') {
       return Array.from(roots).map((rootPath) => vscode.Uri.file(rootPath));
