@@ -459,7 +459,8 @@ export class OculixPreviewPanel {
     const renderedLines = lines
       .map((line, idx) => {
         const rendered = renderLine(line, idx, doc.uri, webview);
-        return `<div class="line" data-line="${idx}"><span class="lineno">${idx + 1}</span><span class="content">${rendered}</span></div>`;
+        const isBlank = line.trim().length === 0 ? '1' : '0';
+        return `<div class="line" data-line="${idx}" data-blank="${isBlank}"><span class="lineno">${idx + 1}</span><span class="content">${rendered}</span></div>`;
       })
       .join('\n');
 
@@ -932,6 +933,7 @@ ${renderedLines}
       if (!Number.isFinite(n)) return;
       const el = document.querySelector('.line[data-line="' + n + '"]');
       if (!el) return;
+      if (el.dataset.blank === '1') return;
       el.classList.remove('run-pending', 'run-success', 'run-failed', 'run-cancelled');
       el.classList.add(className);
       runMarked.add(n);

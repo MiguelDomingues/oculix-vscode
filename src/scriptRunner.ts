@@ -750,7 +750,10 @@ async function materializeRunBundle(
     await fsp.copyFile(sourcePath, targetPath);
   }
 
-  const lineNumbers = Array.from({ length: endLine - startLine + 1 }, (_, idx) => startLine + idx);
+  const lineNumbers = scopedLines
+    .map((line, idx) => ({ line, absoluteLine: startLine + idx }))
+    .filter(({ line }) => line.trim().length > 0)
+    .map(({ absoluteLine }) => absoluteLine);
   return {
     bundlePath,
     lineNumbers,
