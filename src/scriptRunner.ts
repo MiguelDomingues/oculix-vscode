@@ -142,17 +142,20 @@ export class OculixScriptRunner {
     await new Promise<void>((resolve) => {
       proc.on('close', (code, signal) => {
         const wasReplaced = runId !== this.activeRunCancelToken;
+        if (wasReplaced) {
+          resolve();
+          return;
+        }
+
         const status: RunStatus = wasReplaced || signal === 'SIGTERM'
           ? 'cancelled'
           : code === 0
             ? 'success'
             : 'failed';
 
-        if (!wasReplaced) {
-          this.activeProcess = null;
-          this.statusBar.hide();
-          void vscode.commands.executeCommand('setContext', 'oculix.isRunning', false);
-        }
+        this.activeProcess = null;
+        this.statusBar.hide();
+        void vscode.commands.executeCommand('setContext', 'oculix.isRunning', false);
 
         void vscode.commands.executeCommand('oculix.previewRunEvent', {
           type: 'runFinished',
@@ -167,7 +170,7 @@ export class OculixScriptRunner {
             : undefined,
         });
 
-      this.restoreVSCode(vsCodeWindow);
+        this.restoreVSCode(vsCodeWindow);
 
         if (status === 'success') {
           this.output.appendLine('\nOculiX run completed successfully.');
