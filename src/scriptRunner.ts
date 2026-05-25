@@ -658,15 +658,43 @@ export class OculixScriptRunner {
 
   private async downloadFile(url: string, destPath: string): Promise<void> {
     await new Promise<void>((resolve, reject) => {
-      this.makeRequest(url, (res) => {
-        const file = fs.createWriteStream(destPath);
-        res.pipe(file);
-        file.on('finish', () => {
-          file.close();
-          resolve();
+      let settled = false;
+      let file: fs.WriteStream | undefined;
+
+      const fail = (err: Error) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        if (file) {
+          file.destroy();
+        }
+        void fsp.unlink(destPath).catch(() => {
+          // Ignore cleanup errors for partial downloads.
         });
-        file.on('error', reject);
-      }, reject);
+        reject(err);
+      };
+
+      this.makeRequest(
+        url,
+        (res) => {
+          file = fs.createWriteStream(destPath);
+          res.on('error', fail);
+          file.on('error', fail);
+          file.on('finish', () => {
+            file?.close();
+          });
+          file.on('close', () => {
+            if (settled) {
+              return;
+            }
+            settled = true;
+            resolve();
+          });
+          res.pipe(file);
+        },
+        fail
+      );
     });
   }
 
