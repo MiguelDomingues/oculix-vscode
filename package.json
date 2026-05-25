@@ -177,7 +177,7 @@
         },
         "oculix.cleanupUnreferencedImagesOnSave": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "On save of a Python file, move any .png in the image folder that is not referenced by name in any .py file in the workspace to the trash. References inside comments count."
         },
         "oculix.runtimeMode": {
