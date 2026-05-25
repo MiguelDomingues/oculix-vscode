@@ -485,8 +485,8 @@ export class OculixScriptRunner {
 
     const runtimeDir = await this.getRuntimeDir();
     const osPlatform = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'macos' : 'linux';
-    const jarPattern = new RegExp(`oculixide-.*-${osPlatform}\.jar$`, 'i');
-    const shaPattern = new RegExp(`oculixide-.*-${osPlatform}\.jar\.sha256$`, 'i');
+    const jarPattern = new RegExp(`oculixide-.*-${osPlatform}[.]jar$`, 'i');
+    const shaPattern = new RegExp(`oculixide-.*-${osPlatform}[.]jar[.]sha256$`, 'i');
     const jarAsset = release.assets.find((asset) => jarPattern.test(asset.name));
     const shaAsset = release.assets.find((asset) => shaPattern.test(asset.name));
 
