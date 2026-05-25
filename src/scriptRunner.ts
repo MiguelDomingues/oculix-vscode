@@ -436,6 +436,21 @@ export class OculixScriptRunner {
         vscode.window.showErrorMessage(`Configured runtime JAR not found: ${jarPath}`);
         return null;
       }
+      let jarStats: fs.Stats;
+      try {
+        jarStats = fs.statSync(jarPath);
+      } catch {
+        vscode.window.showErrorMessage(`Could not read configured runtime JAR: ${jarPath}`);
+        return null;
+      }
+      if (!jarStats.isFile()) {
+        vscode.window.showErrorMessage(`Configured runtime path must point to a JAR file: ${jarPath}`);
+        return null;
+      }
+      if (path.extname(jarPath).toLowerCase() !== '.jar') {
+        vscode.window.showErrorMessage(`Configured runtime file must end with .jar: ${jarPath}`);
+        return null;
+      }
       return { jarPath, versionLabel: `custom path (${path.basename(jarPath)})` };
     }
 
