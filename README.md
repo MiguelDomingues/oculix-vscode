@@ -31,6 +31,8 @@ It also includes run commands for:
 2. current logical statement from cursor line
 3. selected logical statement range
 
+During script execution, you can also use OculiX's default abort key combination to stop the run; the background runtime process captures it (`Alt+Shift+C` on Windows/Linux, `Cmd+Shift+C` on macOS).
+
 ---
 
 ## Features
