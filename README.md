@@ -77,6 +77,7 @@ During script execution, you can also use OculiX's default abort key combination
 
 - **Hover preview** — hover any `"*.png"` literal in the editor to see a tooltip with the image, file size, and resolved path. Detects images even in `wait(...)` / `click(...)` / comments, not just `Pattern(...)`.
 - **Syntax highlighting** — TextMate grammar injected into Python adds colors for `Pattern`, `.targetOffset`, `.similar`, `Key.ENTER`, etc. Works alongside your existing Python language support.
+- **Paired rename prompts for Sikuli bundles** — when you rename a `*.sikuli` folder, the extension can also rename the matching `*.py` file inside it; when you rename the paired `*.py` file inside a `*.sikuli` folder, it can also rename the folder to match.
 
 ### Image hygiene
 
@@ -170,6 +171,7 @@ All settings live under **Settings → Extensions → OculiX for VS Code**.
 | `oculix.overlayDimColor` | `"#000000"` | Overlay tint color used during capture and test modes. |
 | `oculix.previewImageHeight` | `200` | Maximum height (px) of each thumbnail in the preview panel. Aspect ratio is preserved. Range: 24–1200. |
 | `oculix.cleanupUnreferencedImagesOnSave` | `true` | Move PNGs in the image folder that aren't referenced in any `.py` to the OS trash when you save. Disable if you keep manual images alongside captured ones. |
+| `oculix.autoPairSikuliRenames` | `false` | Automatically keep `.sikuli` folder names and paired `.py` script names in sync during rename operations. You can also enable this by choosing **Always** in the rename prompt. |
 | `oculix.runtimeMode` | `"auto"` | Runtime resolution mode: `auto` manages runtime versions/downloads, `path` uses a user-provided JAR path. |
 | `oculix.runtimeJarPath` | `""` | Path to OculiX runtime JAR when `runtimeMode` is `path`. |
 | `oculix.runtimeVersion` | `"latest"` | Runtime version in `auto` mode: `latest` or an explicit version such as `3.0.4`. |

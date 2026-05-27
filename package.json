@@ -180,6 +180,11 @@
           "default": true,
           "description": "On save of a Python file, move any .png in the image folder that is not referenced by name in any .py file in the workspace to the trash. References inside comments count."
         },
+        "oculix.autoPairSikuliRenames": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically keep .sikuli folder names and their paired .py script names in sync during rename operations."
+        },
         "oculix.runtimeMode": {
           "type": "string",
           "enum": [
