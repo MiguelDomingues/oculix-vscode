@@ -1,0 +1,94 @@
+name: Auto Tag Version Bumps
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - package.json
+      - package-lock.json
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  auto-tag:
+    name: Tag synchronized version bumps
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Find version bump commits and create missing tags
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BEFORE_SHA="${{ github.event.before }}"
+          AFTER_SHA="${{ github.sha }}"
+
+          if [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            COMMITS="$AFTER_SHA"
+          else
+            COMMITS=$(git rev-list --reverse "$BEFORE_SHA..$AFTER_SHA")
+          fi
+
+          if [ -z "$COMMITS" ]; then
+            echo "No commits to inspect."
+            exit 0
+          fi
+
+          CREATED_TAGS=()
+
+          for COMMIT in $COMMITS; do
+            CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r "$COMMIT")
+
+            HAS_PACKAGE_JSON=false
+            HAS_PACKAGE_LOCK=false
+
+            if echo "$CHANGED_FILES" | grep -qx "package.json"; then
+              HAS_PACKAGE_JSON=true
+            fi
+            if echo "$CHANGED_FILES" | grep -qx "package-lock.json"; then
+              HAS_PACKAGE_LOCK=true
+            fi
+
+            if [ "$HAS_PACKAGE_JSON" != "true" ] || [ "$HAS_PACKAGE_LOCK" != "true" ]; then
+              continue
+            fi
+
+            PKG_VERSION=$(git show "$COMMIT:package.json" | node -e "const fs=require('fs'); const data=JSON.parse(fs.readFileSync(0,'utf8')); process.stdout.write(String(data.version || ''));")
+            LOCK_VERSION=$(git show "$COMMIT:package-lock.json" | node -e "const fs=require('fs'); const data=JSON.parse(fs.readFileSync(0,'utf8')); process.stdout.write(String(data.version || ''));")
+            LOCK_ROOT_VERSION=$(git show "$COMMIT:package-lock.json" | node -e "const fs=require('fs'); const data=JSON.parse(fs.readFileSync(0,'utf8')); process.stdout.write(String((data.packages && data.packages[''] && data.packages[''].version) || ''));")
+
+            if [ -z "$PKG_VERSION" ] || [ -z "$LOCK_VERSION" ] || [ -z "$LOCK_ROOT_VERSION" ]; then
+              echo "Skipping $COMMIT because one of the version fields is empty."
+              continue
+            fi
+
+            if [ "$PKG_VERSION" != "$LOCK_VERSION" ] || [ "$PKG_VERSION" != "$LOCK_ROOT_VERSION" ]; then
+              echo "Skipping $COMMIT due to version mismatch (package.json=$PKG_VERSION, package-lock.json=$LOCK_VERSION, lock root=$LOCK_ROOT_VERSION)."
+              continue
+            fi
+
+            TAG_NAME="v$PKG_VERSION"
+            if git rev-parse -q --verify "refs/tags/$TAG_NAME" >/dev/null; then
+              echo "Tag $TAG_NAME already exists."
+              continue
+            fi
+
+            git tag "$TAG_NAME" "$COMMIT"
+            CREATED_TAGS+=("$TAG_NAME")
+            echo "Created tag $TAG_NAME for commit $COMMIT."
+          done
+
+          if [ "${#CREATED_TAGS[@]}" -eq 0 ]; then
+            echo "No new tags to push."
+            exit 0
+          fi
+
+          echo "Pushing tags: ${CREATED_TAGS[*]}"
+          git push origin "${CREATED_TAGS[@]}"

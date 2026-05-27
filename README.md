@@ -230,6 +230,8 @@ git tag v0.1.3
 git push && git push --tags
 ```
 
+Note: CI also auto-creates a tag when a push to main/master includes a commit that updates both `package.json` and `package-lock.json` with the same version.
+
 ### Packaging a `.vsix`
 
 ```bash
