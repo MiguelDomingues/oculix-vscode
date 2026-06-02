@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - "v*"
+  repository_dispatch:
+    types:
+      - ci-tag-created
 
 concurrency:
   group: release-publish
@@ -20,10 +23,27 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      - name: Resolve release tag
+        id: resolve_tag
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            TAG_NAME="${{ github.event.client_payload.tag }}"
+          else
+            TAG_NAME="${GITHUB_REF_NAME}"
+          fi
+
+          if [ -z "$TAG_NAME" ]; then
+            echo "::error::Release tag could not be resolved from event payload."
+            exit 1
+          fi
+
+          echo "release_tag=$TAG_NAME" >> "$GITHUB_OUTPUT"
+
       - name: Check out repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 0  # full history so --generate-notes can diff against the previous tag
+          ref: ${{ steps.resolve_tag.outputs.release_tag }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -32,14 +52,18 @@ jobs:
           cache: npm
 
       - name: Verify tag matches package.json version
+        id: verify_version
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          TAG_VERSION="${{ steps.resolve_tag.outputs.release_tag }}"
+          TAG_VERSION="${TAG_VERSION#v}"
           PKG_VERSION=$(node -p "require('./package.json').version")
           if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
             echo "::error::Tag ($TAG_VERSION) does not match package.json version ($PKG_VERSION)"
             exit 1
           fi
-          echo "VSIX_NAME=$(node -p "require('./package.json').name")-${PKG_VERSION}.vsix" >> "$GITHUB_ENV"
+
+          VSIX_NAME="$(node -p "require('./package.json').name")-${PKG_VERSION}.vsix"
+          echo "vsix_name=$VSIX_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies
         run: npm ci
@@ -48,16 +72,16 @@ jobs:
         run: npm run compile
 
       - name: Package extension (.vsix)
-        run: npx --yes @vscode/vsce package --no-dependencies --out "${{ env.VSIX_NAME }}"
+        run: npx --yes @vscode/vsce package --no-dependencies --out "${{ steps.verify_version.outputs.vsix_name }}"
 
       - name: Publish to VS Code Marketplace
-        run: npx @vscode/vsce publish --packagePath "${{ env.VSIX_NAME }}"
+        run: npx @vscode/vsce publish --packagePath "${{ steps.verify_version.outputs.vsix_name }}"
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          files: ${{ env.VSIX_NAME }}
+          files: ${{ steps.verify_version.outputs.vsix_name }}
           generate_release_notes: true
           fail_on_unmatched_files: true
