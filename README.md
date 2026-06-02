@@ -61,7 +61,7 @@ During script execution, you can also use OculiX's default abort key combination
 ### Setting similarity visually
 
 - A small `XX%` badge in the top-right corner of each thumbnail shows the current `.similar(value)` (rendered as a percentage). It's hidden by default and appears on hover — **except when the value differs from the default `0.7`**, in which case it stays pinned to make non-default thresholds obvious.
-- **Scroll wheel over a thumbnail** to adjust similarity (±5% per tick, hold `Shift` for ±1%, `Alt` to snap to nearest 10%). Changes are written to source ~500 ms after the last scroll tick.
+- **Hold `Ctrl` / `⌘` and scroll over a thumbnail** to adjust similarity (±5% per tick, add `Shift` for ±1%, add `Alt` to snap to nearest 10%). Changes are written to source ~500 ms after the last scroll tick.
 - **Click the badge** for a popover with a slider and preset chips (50%, 70%, 80%, 90%, 95%).
 - If `.similar(...)` doesn't exist yet, it's inserted; otherwise replaced in place.
 

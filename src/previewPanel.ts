@@ -790,6 +790,9 @@ ${renderedLines}
   document.addEventListener('wheel', (e) => {
     const wrap = e.target.closest('.pattern-wrap');
     if (!wrap) return;
+    // Similarity wheel adjustment is intentional/modified input only.
+    // Require Ctrl (Windows/Linux) or Cmd (macOS) before consuming wheel.
+    if (!(e.ctrlKey || e.metaKey)) return;
     e.preventDefault();
     // Some Shift-modified wheel interactions can emit zero-delta wheel events.
     // Ignore those so one notch maps to one logical step.
