@@ -235,7 +235,7 @@
     "bump": "node scripts/bump-version.js"
   },
   "devDependencies": {
-    "@types/node": "^25.9.1",
+    "@types/node": "^25.9.2",
     "@types/vscode": "^1.85.0",
     "typescript": "^6.0.3"
   },
