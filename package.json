@@ -215,6 +215,14 @@
           "minimum": 1,
           "maximum": 720,
           "description": "Minimum interval, in hours, between background runtime update checks in auto + latest mode."
+        },
+        "oculix.extraJarPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Paths to JAR files to add to Jython's sys.path before running a script. Enables load('file.jar') to resolve JARs from these locations."
         }
       }
     },

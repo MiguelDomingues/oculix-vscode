@@ -121,8 +121,12 @@ export class OculixScriptRunner {
     const vsCodeWindow = this.minimizeVSCode();
 
     const javaCommand = process.platform === 'win32' ? javaOk.command.replace(/\bjava$/i, 'javaw') : javaOk.command;
-    const args = ['-jar', runtime.jarPath, '-r', materialized.bundlePath];
-    const proc = spawn(javaCommand, args, { stdio: 'pipe' });
+    const extraJarPaths = vscode.workspace.getConfiguration("oculix").get<string[]>("extraJarPaths", []);
+    const jvmArgs: string[] = extraJarPaths.length > 0
+      ? [`-Dpython.path=${extraJarPaths.join(process.platform === "win32" ? ";" : ":")}`]
+      : [];
+    const args = [...jvmArgs, "-jar", runtime.jarPath, "-r", materialized.bundlePath];
+    const proc = spawn(javaCommand, args, { stdio: "pipe" });
     this.activeProcess = proc;
     this.activeRunTempDir = materialized.tempDir;
 

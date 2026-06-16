@@ -33,6 +33,8 @@ It also includes run commands for:
 
 During script execution, you can also use OculiX's default abort key combination to stop the run; the background runtime process captures it (`Alt+Shift+C` on Windows/Linux, `Cmd+Shift+C` on macOS).
 
+If your scripts use `load('file.jar')` to pull in external libraries, configure `oculix.extraJarPaths` with the paths to those JARs. They are added to Jython's `sys.path` before the run starts, so `load(...)` can find them without you hardcoding absolute paths in the script itself.
+
 ---
 
 ## Features
@@ -177,6 +179,7 @@ All settings live under **Settings → Extensions → OculiX for VS Code**.
 | `oculix.runtimeVersion` | `"latest"` | Runtime version in `auto` mode: `latest` or an explicit version such as `3.0.4`. |
 | `oculix.runtimeUpdateCheckOnStartup` | `true` | In `auto + latest`, checks for updates in the background when the extension loads. |
 | `oculix.runtimeUpdateCheckIntervalHours` | `24` | Minimum interval between background runtime update checks. |
+| `oculix.extraJarPaths` | `[]` | Paths to JAR files added to Jython's `sys.path` before the script runs. Lets you call `load('file.jar')` for JARs in these locations without hardcoding absolute paths in your script. |
 
 ---
 
