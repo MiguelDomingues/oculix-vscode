@@ -121,7 +121,7 @@ export class OculixScriptRunner {
     const vsCodeWindow = this.minimizeVSCode();
 
     const javaCommand = process.platform === 'win32' ? javaOk.command.replace(/\bjava$/i, 'javaw') : javaOk.command;
-    const extraJarPaths = vscode.workspace.getConfiguration("oculix").get<string[]>("extraJarPaths", []);
+    const extraJarPaths = vscode.workspace.getConfiguration("oculix").get<string[]>("extraJarPaths", []).map(resolveConfigPath);
     const jvmArgs: string[] = extraJarPaths.length > 0
       ? [`-Dpython.path=${extraJarPaths.join(process.platform === "win32" ? ";" : ":")}`]
       : [];
@@ -768,6 +768,11 @@ type MaterializedBundle = {
   lineNumbers: number[];
   startLine: number;
 };
+
+function resolveConfigPath(p: string): string {
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
+  return p.replace(/\$\{workspaceFolder\}/g, workspaceFolder);
+}
 
 async function materializeRunBundle(
   doc: vscode.TextDocument,
