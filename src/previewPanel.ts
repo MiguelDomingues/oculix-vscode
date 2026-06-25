@@ -1187,6 +1187,134 @@ function renderLine(
   const imageHtml = new Map<number, string>();
 
   const renderCommentWithImages = (tok: Token): string => {
+    type CommentOffset = { start: number; end: number; x: number; y: number };
+    type CommentSimilar = { start: number; end: number; value: number };
+
+    const readSignedNumber = (text: string, start: number): { value: number; next: number } | null => {
+      let i = start;
+      let sign = 1;
+      if (i < text.length && text[i] === '-') {
+        sign = -1;
+        i++;
+      } else if (i < text.length && text[i] === '+') {
+        i++;
+      }
+
+      const numStart = i;
+      if (i < text.length && text[i] === '.') {
+        i++;
+      }
+      while (i < text.length && /[0-9_]/.test(text[i])) i++;
+      if (i < text.length && text[i] === '.') {
+        i++;
+        while (i < text.length && /[0-9_]/.test(text[i])) i++;
+      }
+      if (i === numStart) {
+        return null;
+      }
+
+      const parsed = sign * parseFloat(text.slice(numStart, i).replace(/_/g, ''));
+      if (!Number.isFinite(parsed)) {
+        return null;
+      }
+      return { value: parsed, next: i };
+    };
+
+    const parseCommentChain = (
+      text: string,
+      start: number
+    ): { end: number; offset: CommentOffset | null; similar: CommentSimilar | null } => {
+      let i = start;
+      let offset: CommentOffset | null = null;
+      let similar: CommentSimilar | null = null;
+
+      const skipWs = () => {
+        while (i < text.length && /\s/.test(text[i])) i++;
+      };
+
+      while (true) {
+        const chainStart = i;
+        skipWs();
+        if (i >= text.length || text[i] !== '.') {
+          i = chainStart;
+          break;
+        }
+        const dot = i;
+        i++;
+        skipWs();
+
+        if (text.startsWith('targetOffset', i) && !offset) {
+          i += 'targetOffset'.length;
+          skipWs();
+          if (i >= text.length || text[i] !== '(') {
+            i = chainStart;
+            break;
+          }
+          i++;
+          skipWs();
+          const x = readSignedNumber(text, i);
+          if (!x) {
+            i = chainStart;
+            break;
+          }
+          i = x.next;
+          skipWs();
+          if (i >= text.length || text[i] !== ',') {
+            i = chainStart;
+            break;
+          }
+          i++;
+          skipWs();
+          const y = readSignedNumber(text, i);
+          if (!y) {
+            i = chainStart;
+            break;
+          }
+          i = y.next;
+          skipWs();
+          if (i >= text.length || text[i] !== ')') {
+            i = chainStart;
+            break;
+          }
+          const end = i;
+          i++;
+          offset = { start: dot, end, x: x.value, y: y.value };
+          continue;
+        }
+
+        if (text.startsWith('similar', i) && !similar) {
+          i += 'similar'.length;
+          skipWs();
+          if (i >= text.length || text[i] !== '(') {
+            i = chainStart;
+            break;
+          }
+          i++;
+          skipWs();
+          const sim = readSignedNumber(text, i);
+          if (!sim) {
+            i = chainStart;
+            break;
+          }
+          i = sim.next;
+          skipWs();
+          if (i >= text.length || text[i] !== ')') {
+            i = chainStart;
+            break;
+          }
+          const end = i;
+          i++;
+          similar = { start: dot, end, value: sim.value };
+          continue;
+        }
+
+        i = chainStart;
+        break;
+      }
+
+      return { end: i, offset, similar };
+    };
+
     const parts: string[] = [];
     const pattern = /(["'])([^"'\n]+\.png)\1/ig;
     let lastIndex = 0;
@@ -1198,8 +1326,36 @@ function renderLine(
       const fullMatch = match[0];
       const filename = match[2];
       const matchIndex = match.index;
+      const matchEnd = matchIndex + fullMatch.length;
 
-      const before = tok.text.slice(lastIndex, matchIndex);
+      if (matchIndex < lastIndex) {
+        continue;
+      }
+
+      let replaceStart = matchIndex;
+      let replaceEnd = matchEnd;
+      let wrapEnd: number | undefined;
+      let offsetMeta: CommentOffset | null = null;
+      let similarMeta: CommentSimilar | null = null;
+
+      const beforeMatch = tok.text.slice(0, matchIndex);
+      const patternWrapped = /\bPattern\s*\(\s*$/.exec(beforeMatch);
+      if (patternWrapped) {
+        const patternStart = patternWrapped.index;
+        let i = matchEnd;
+        while (i < tok.text.length && /\s/.test(tok.text[i])) i++;
+        if (i < tok.text.length && tok.text[i] === ')') {
+          const closeParen = i;
+          const chain = parseCommentChain(tok.text, closeParen + 1);
+          replaceStart = patternStart;
+          replaceEnd = chain.end > closeParen + 1 ? chain.end : closeParen + 1;
+          wrapEnd = closeParen + 1;
+          offsetMeta = chain.offset;
+          similarMeta = chain.similar;
+        }
+      }
+
+      const before = tok.text.slice(lastIndex, replaceStart);
       if (before.length > 0) {
         parts.push(`<span class="tok-comment">${escapeHtml(before)}</span>`);
       }
@@ -1208,17 +1364,31 @@ function renderLine(
       const strEnd = strCol + fullMatch.length;
       const imagePath = resolveImagePath(docUri, filename);
       if (!imagePath) {
-        parts.push(`<span class="pattern-missing" title="Image not found">${escapeHtml(fullMatch)}</span>`);
+        const missingText = tok.text.slice(replaceStart, replaceEnd);
+        parts.push(`<span class="pattern-missing" title="Image not found">${escapeHtml(missingText)}</span>`);
       } else {
         const source: ImageSourceInfo = {
           lineIdx,
           strCol,
           strEnd,
         };
-        parts.push(buildImageHtml(filename, imagePath, webview, source, null, null));
+        if (wrapEnd !== undefined) {
+          source.wrapEnd = tok.col + wrapEnd;
+        }
+        if (offsetMeta) {
+          source.offCol = tok.col + offsetMeta.start;
+          source.offEnd = tok.col + offsetMeta.end + 1;
+        }
+        if (similarMeta) {
+          source.simCol = tok.col + similarMeta.start;
+          source.simEnd = tok.col + similarMeta.end + 1;
+        }
+        const offset = offsetMeta ? { x: offsetMeta.x, y: offsetMeta.y } : null;
+        const similarity = similarMeta ? similarMeta.value : null;
+        parts.push(buildImageHtml(filename, imagePath, webview, source, offset, similarity));
       }
 
-      lastIndex = matchIndex + fullMatch.length;
+      lastIndex = replaceEnd;
     }
 
     if (!found) {
