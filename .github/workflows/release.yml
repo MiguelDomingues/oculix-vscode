@@ -40,7 +40,7 @@ jobs:
           echo "release_tag=$TAG_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0  # full history so --generate-notes can diff against the previous tag
           ref: ${{ steps.resolve_tag.outputs.release_tag }}
