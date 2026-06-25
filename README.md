@@ -49,6 +49,7 @@ If your scripts use `load('file.jar')` to pull in external libraries, configure 
 - Renders your `.py` as syntax-highlighted code, replacing any `"*.png"` string literal with an actual thumbnail of the image.
   - When wrapped in `Pattern("...")`, the wrapper is hidden so the image stands alone.
   - Outside of `Pattern(...)` (e.g. `wait("foo.png")`, `click("foo.png")`), the image renders inline next to the surrounding code.
+  - Quoted PNG references inside comments also render (for example `# click(Pattern("foo.png").targetOffset(0,0))`).
 - **Live updates** as you edit (250 ms debounce).
 - **Cursor sync** — moving the cursor in the editor highlights the corresponding line in the preview and scrolls it into view if off-screen.
 - **Click a line** (off-image) to jump the editor cursor to that line.

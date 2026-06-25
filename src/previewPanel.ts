@@ -1186,9 +1186,59 @@ function renderLine(
   const hidden = new Set<number>();
   const imageHtml = new Map<number, string>();
 
+  const renderCommentWithImages = (tok: Token): string => {
+    const parts: string[] = [];
+    const pattern = /(["'])([^"'\n]+\.png)\1/ig;
+    let lastIndex = 0;
+    let found = false;
+    let match: RegExpExecArray | null;
+
+    while ((match = pattern.exec(tok.text)) !== null) {
+      found = true;
+      const fullMatch = match[0];
+      const filename = match[2];
+      const matchIndex = match.index;
+
+      const before = tok.text.slice(lastIndex, matchIndex);
+      if (before.length > 0) {
+        parts.push(`<span class="tok-comment">${escapeHtml(before)}</span>`);
+      }
+
+      const strCol = tok.col + matchIndex;
+      const strEnd = strCol + fullMatch.length;
+      const imagePath = resolveImagePath(docUri, filename);
+      if (!imagePath) {
+        parts.push(`<span class="pattern-missing" title="Image not found">${escapeHtml(fullMatch)}</span>`);
+      } else {
+        const source: ImageSourceInfo = {
+          lineIdx,
+          strCol,
+          strEnd,
+        };
+        parts.push(buildImageHtml(filename, imagePath, webview, source, null, null));
+      }
+
+      lastIndex = matchIndex + fullMatch.length;
+    }
+
+    if (!found) {
+      return `<span class="tok-comment">${escapeHtml(tok.text)}</span>`;
+    }
+
+    const tail = tok.text.slice(lastIndex);
+    if (tail.length > 0) {
+      parts.push(`<span class="tok-comment">${escapeHtml(tail)}</span>`);
+    }
+    return parts.join('');
+  };
+
   // First pass: find image-reference string tokens, optionally hide their `Pattern(...)` wrapper.
   for (let i = 0; i < tokens.length; i++) {
     const tok = tokens[i];
+    if (tok.type === 'comment') {
+      imageHtml.set(i, renderCommentWithImages(tok));
+      continue;
+    }
     if (tok.type !== 'string') continue;
     const imgMatch = tok.text.match(/^["']([^"'\n]+\.png)["']$/i);
     if (!imgMatch) continue;
