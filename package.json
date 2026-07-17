@@ -15,7 +15,7 @@
   "homepage": "https://github.com/MiguelDomingues/oculix-vscode#readme",
   "license": "MIT",
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.125.0"
   },
   "categories": [
     "Other"
