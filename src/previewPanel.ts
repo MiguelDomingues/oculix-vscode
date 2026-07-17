@@ -946,7 +946,7 @@ ${renderedLines}
         // Only scroll if the line is not already visible.
         const rect = next.getBoundingClientRect();
         if (rect.top < 0 || rect.bottom > window.innerHeight) {
-          next.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          next.scrollIntoView({ block: 'center', behavior: 'auto' });
         }
       }
     } else if (msg && msg.type === 'persistState') {
