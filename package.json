@@ -15,7 +15,7 @@
   "homepage": "https://github.com/MiguelDomingues/oculix-vscode#readme",
   "license": "MIT",
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.125.0"
   },
   "categories": [
     "Other"
@@ -243,9 +243,9 @@
     "bump": "node scripts/bump-version.js"
   },
   "devDependencies": {
-    "@types/node": "^26.0.0",
-    "@types/vscode": "1.85.0",
-    "typescript": "^6.0.3"
+    "@types/node": "^26.1.1",
+    "@types/vscode": "1.125.0",
+    "typescript": "^7.0.2"
   },
   "dependencies": {
     "@vscode/codicons": "^0.0.45"
